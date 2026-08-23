@@ -1,0 +1,268 @@
+// !$*UTF8*$!
+{
+  archiveVersion = 1;
+  classes = {};
+  objectVersion = 56;
+  objects = {
+
+/* Begin PBXBuildFile section */
+    A10000000000000000000001 = {isa = PBXBuildFile; fileRef = A10000000000000000000002; };
+    A20000000000000000000002 = {isa = PBXBuildFile; fileRef = A20000000000000000000001; };
+    A20000000000000000000004 = {isa = PBXBuildFile; fileRef = A20000000000000000000003; };
+    A20000000000000000000006 = {isa = PBXBuildFile; fileRef = A20000000000000000000005; };
+    A20000000000000000000008 = {isa = PBXBuildFile; fileRef = A20000000000000000000007; };
+    A2000000000000000000000A = {isa = PBXBuildFile; fileRef = A20000000000000000000009; };
+    A2000000000000000000000C = {isa = PBXBuildFile; fileRef = A2000000000000000000000B; };
+    A2000000000000000000000E = {isa = PBXBuildFile; fileRef = A2000000000000000000000D; };
+    A20000000000000000000010 = {isa = PBXBuildFile; fileRef = A2000000000000000000000F; };
+    A20000000000000000000012 = {isa = PBXBuildFile; fileRef = A20000000000000000000011; };
+    A20000000000000000000014 = {isa = PBXBuildFile; fileRef = A20000000000000000000013; };
+    A20000000000000000000016 = {isa = PBXBuildFile; fileRef = A20000000000000000000015; };
+    A20000000000000000000018 = {isa = PBXBuildFile; fileRef = A20000000000000000000017; };
+    A2000000000000000000001A = {isa = PBXBuildFile; fileRef = A20000000000000000000019; };
+    A2000000000000000000001C = {isa = PBXBuildFile; fileRef = A2000000000000000000001B; };
+    A20000000000000000000030 = {isa = PBXBuildFile; fileRef = A20000000000000000000021; };
+    A20000000000000000000031 = {isa = PBXBuildFile; fileRef = A20000000000000000000001; };
+    A20000000000000000000032 = {isa = PBXBuildFile; fileRef = A20000000000000000000005; };
+    A20000000000000000000033 = {isa = PBXBuildFile; fileRef = A2000000000000000000002B; settings = {ATTRIBUTES = (RemoveHeadersOnCopy); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+    A10000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = rDosApp.swift; sourceTree = "<group>"; };
+    A10000000000000000005 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = rDos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+    A20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItem.swift; sourceTree = "<group>"; };
+    A20000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+    A20000000000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayGrouping.swift; sourceTree = "<group>"; };
+    A20000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+    A20000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+    A2000000000000000000000B = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+    A2000000000000000000000D = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+    A2000000000000000000000F = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomedayArchiveViews.swift; sourceTree = "<group>"; };
+    A20000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
+    A20000000000000000000013 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorView.swift; sourceTree = "<group>"; };
+    A20000000000000000000015 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+    A20000000000000000000017 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding.swift; sourceTree = "<group>"; };
+    A2000000000000000000001B = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+    A20000000000000000000021 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = rDosWidgets.swift; sourceTree = "<group>"; };
+    A20000000000000000000023 = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = rDos.entitlements; sourceTree = "<group>"; };
+    A20000000000000000000024 = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = rDosWidgets.entitlements; sourceTree = "<group>"; };
+    A20000000000000000000039 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+    A2000000000000000000002B = {isa = PBXFileReference; explicitFileType = wrapper.app-extension; includeInIndex = 0; path = rDosWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+    A10000000000000000000006 = {
+      isa = PBXGroup;
+      children = (
+        A10000000000000000000007,
+        A20000000000000000000022,
+        A10000000000000000000008,
+      );
+      sourceTree = "<group>";
+    };
+    A10000000000000000000007 = {
+      isa = PBXGroup;
+      children = (
+        A10000000000000000000002,
+        A20000000000000000000001,
+        A20000000000000000000003,
+        A20000000000000000000005,
+        A20000000000000000000007,
+        A20000000000000000000009,
+        A2000000000000000000000B,
+        A2000000000000000000000D,
+        A2000000000000000000000F,
+        A20000000000000000000011,
+        A20000000000000000000013,
+        A20000000000000000000015,
+        A20000000000000000000017,
+        A2000000000000000000001B,
+        A20000000000000000000023,
+      );
+      path = rDos;
+      sourceTree = "<group>";
+    };
+    A20000000000000000000022 = {
+      isa = PBXGroup;
+      children = (
+        A20000000000000000000021,
+        A20000000000000000000024,
+        A20000000000000000000039,
+      );
+      path = rDosWidgets;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000008 = {
+      isa = PBXGroup;
+      children = (
+        A10000000000000000000005,
+        A2000000000000000000002B,
+      );
+      name = Products;
+      sourceTree = "<group>";
+    };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+    A10000000000000000000009 = {
+      isa = PBXNativeTarget;
+      buildConfigurationList = A1000000000000000000000A;
+      buildPhases = (
+        A1000000000000000000000B,
+        A2000000000000000000020,
+        A200000000000000000002C,
+      );
+      buildRules = ();
+      dependencies = (
+        A2000000000000000000002E,
+      );
+      name = rDos;
+      productName = rDos;
+      productReference = A10000000000000000000005;
+      productType = "com.apple.product-type.application";
+    };
+    A20000000000000000000025 = {
+      isa = PBXNativeTarget;
+      buildConfigurationList = A20000000000000000000034;
+      buildPhases = (
+        A20000000000000000000026,
+        A20000000000000000000027,
+        A20000000000000000000038,
+      );
+      buildRules = ();
+      dependencies = ();
+      name = rDosWidgets;
+      productName = rDosWidgets;
+      productReference = A2000000000000000000002B;
+      productType = "com.apple.product-type.app-extension";
+    };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+    A1000000000000000000000C = {
+      isa = PBXProject;
+      attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 1500; LastUpgradeCheck = 1500; TargetAttributes = {A10000000000000000000009 = {CreatedOnToolsVersion = 15.0;}; A20000000000000000000025 = {CreatedOnToolsVersion = 15.0;};};};
+      buildConfigurationList = A1000000000000000000000D;
+      compatibilityVersion = "Xcode 14.0";
+      developmentRegion = en;
+      hasScannedForEncodings = 0;
+      knownRegions = (en, Base);
+      mainGroup = A10000000000000000000006;
+      productRefGroup = A10000000000000000000008;
+      projectDirPath = "";
+      projectRoot = "";
+      targets = (
+        A10000000000000000000009,
+        A20000000000000000000025,
+      );
+    };
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+    A1000000000000000000000B = {
+      isa = PBXSourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+        A10000000000000000000001,
+        A20000000000000000000002,
+        A20000000000000000000004,
+        A20000000000000000000006,
+        A20000000000000000000008,
+        A2000000000000000000000A,
+        A2000000000000000000000C,
+        A2000000000000000000000E,
+        A20000000000000000000010,
+        A20000000000000000000012,
+        A20000000000000000000014,
+        A20000000000000000000016,
+        A20000000000000000000018,
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+    A200000000000000000002C = {
+      isa = PBXCopyFilesBuildPhase;
+      buildActionMask = 2147483647;
+      dstPath = "";
+      dstSubfolderSpec = 13;
+      files = (
+        A20000000000000000000033,
+      );
+      name = "Embed Foundation Extensions";
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+    A2000000000000000000002D = {
+      isa = PBXContainerItemProxy;
+      containerPortal = A1000000000000000000000C;
+      proxyType = 1;
+      remoteGlobalIDString = A20000000000000000000025;
+      remoteInfo = rDosWidgets;
+    };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+    A2000000000000000000002E = {
+      isa = PBXTargetDependency;
+      target = A20000000000000000000025;
+      targetProxy = A2000000000000000000002D;
+    };
+/* End PBXTargetDependency section */
+
+/* Begin PBXSourcesBuildPhase (widget) section */
+    A20000000000000000000026 = {
+      isa = PBXSourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+        A20000000000000000000030,
+        A20000000000000000000031,
+        A20000000000000000000032,
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    A20000000000000000000027 = {
+      isa = PBXFrameworksBuildPhase;
+      buildActionMask = 2147483647;
+      files = ();
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    A20000000000000000000038 = {
+      isa = PBXResourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = ();
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+/* End PBXSourcesBuildPhase (widget) section */
+
+/* Begin PBXResourcesBuildPhase section */
+    A2000000000000000000020 = {
+      isa = PBXResourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+        A2000000000000000000001C,
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+    A1000000000000000000000E = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES; CLANG_WARN_BOOL_CONVERSION = YES; CLANG_WARN_COMMA = YES; CLANG_WARN_CONSTANT_CONVERSION = YES; CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES; CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; CLANG_WARN_EMPTY_BODY = YES; CLANG_WARN_ENUM_CONVERSION = YES; CLANG_WARN_INFINITE_RECURSION = YES; CLANG_WARN_INT_CONVERSION = YES; CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES; CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES; CLANG_WARN_OBJC_LITERAL_CONVERSION = YES; CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR; CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES; CLANG_WARN_RANGE_LOOP_ANALYSIS = YES; CLANG_WARN_STRICT_PROTOTYPES = YES; CLANG_WARN_SUSPICIOUS_MOVE = YES; CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE; CLANG_WARN_UNREACHABLE_CODE = YES; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_STRICT_OBJC_MSGSEND = YES; ENABLE_TESTABILITY = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_DYNAMIC_NO_PIC = NO; GCC_NO_COMMON_BLOCKS = YES; GCC_OPTIMIZATION_LEVEL = 0; GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)"); GCC_WARN_64_TO_32_BIT_CONVERSION = YES; GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR; GCC_WARN_UNDECLARED_SELECTOR = YES; GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE; GCC_WARN_UNUSED_FUNCTION = YES; GCC_WARN_UNUSED_VARIABLE = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE; MTL_FAST_MATH = YES; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone";}; name = Debug; };
+    A1000000000000000000000F = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; ENABLE_NS_ASSERTIONS = NO; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 26.0; MTL_ENABLE_DEBUG_INFO = NO; MTL_FAST_MATH = YES; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; VALIDATE_PRODUCT = YES;}; name = Release; };
+    A10000000000000000000010 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = rDos/rDos.entitlements; CODE_SIGN_STYLE = Automatic; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_ASSET_PATHS = ""; DEVELOPMENT_TEAM = 389ERK8H32; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.reyhsiehchang.rDos; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1;}; name = Debug; };
+    A10000000000000000000011 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = rDos/rDos.entitlements; CODE_SIGN_STYLE = Automatic; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_ASSET_PATHS = ""; DEVELOPMENT_TEAM = 389ERK8H32; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.reyhsiehchang.rDos; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1;}; name = Release; };
+    A20000000000000000000035 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = rDosWidgets/rDosWidgets.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 389ERK8H32; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = rDosWidgets/Info.plist; INFOPLIST_KEY_CFBundleDisplayName = rDos; IPHONEOS_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.reyhsiehchang.rDos.widgets; PRODUCT_NAME = rDosWidgetsExtension; SDKROOT = iphoneos; SKIP_INSTALL = YES; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1;}; name = Debug; };
+    A20000000000000000000036 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = rDosWidgets/rDosWidgets.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 389ERK8H32; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = rDosWidgets/Info.plist; INFOPLIST_KEY_CFBundleDisplayName = rDos; IPHONEOS_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.reyhsiehchang.rDos.widgets; PRODUCT_NAME = rDosWidgetsExtension; SDKROOT = iphoneos; SKIP_INSTALL = YES; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1;}; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+    A20000000000000000000034 = {isa = XCConfigurationList; buildConfigurations = (A20000000000000000000035, A20000000000000000000036); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+    A1000000000000000000000D = {isa = XCConfigurationList; buildConfigurations = (A1000000000000000000000E, A1000000000000000000000F); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+    A1000000000000000000000A = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000010, A10000000000000000000011); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+  };
+  rootObject = A1000000000000000000000C;
+}
