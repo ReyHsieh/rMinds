@@ -34,6 +34,8 @@ struct rDosApp: App {
                 .environment(settings)
                 .environment(onboarding)
                 .preferredColorScheme(settings.appearance.colorScheme)
+                // 外观切回“跟随系统”时强制重建，避免停留在上一个明确浅/深色
+                .id(settings.appearance)
         }
         .modelContainer(container)
     }

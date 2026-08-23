@@ -90,8 +90,10 @@ struct SettingsView: View {
                         .fontWeight(.semibold)
                 }
             }
-            // sheet 不继承呈现方的 preferredColorScheme，需自行应用才能实时响应外观切换
+            // sheet 不继承呈现方的 preferredColorScheme，需自行应用才能实时响应外观切换。
+            // 切回“跟随系统”(nil) 时 SwiftUI 不会主动重解析偏好，用 id 强制重建视图使其生效。
             .preferredColorScheme(settings.appearance.colorScheme)
+            .id(settings.appearance)
         }
     }
 

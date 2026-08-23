@@ -24,7 +24,13 @@ struct MainView: View {
     @Query(sort: \TaskItem.createdAt) private var tasks: [TaskItem]
 
     @Namespace private var tabNamespace
-    @State private var tab: Tab = .home
+    // SceneStorage：外观切换引发整树重建时保住当前标签页
+    @SceneStorage("main.selectedTab") private var tabRawValue: String = Tab.home.rawValue
+
+    private var tab: Tab {
+        get { Tab(rawValue: tabRawValue) ?? .home }
+        nonmutating set { tabRawValue = newValue.rawValue }
+    }
     @State private var showEditor = false
     @State private var editingTask: TaskItem?
     @State private var showSettings = false
