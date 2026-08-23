@@ -127,7 +127,6 @@ struct TaskEditorView: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 16)
         .background(Color.appBackground)
-        .preferredColorScheme(settings.appearance.colorScheme)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .onAppear {

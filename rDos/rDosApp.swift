@@ -1,6 +1,29 @@
 import SwiftUI
 import SwiftData
 import WidgetKit
+import UIKit
+
+/// 外观应用器：走 UIWindow 级 override。
+/// 不用 SwiftUI 的 preferredColorScheme——它从明确值切回 nil（跟随系统）时不会重解析，
+/// 而强制重建视图又会拆掉正在展示的 sheet。
+enum AppearanceApplier {
+    static func apply(_ mode: AppearanceMode) {
+        let style: UIUserInterfaceStyle
+        switch mode {
+        case .system: style = .unspecified
+        case .light: style = .light
+        case .dark: style = .dark
+        }
+        DispatchQueue.main.async {
+            for scene in UIApplication.shared.connectedScenes {
+                guard let windowScene = scene as? UIWindowScene else { continue }
+                for window in windowScene.windows {
+                    window.overrideUserInterfaceStyle = style
+                }
+            }
+        }
+    }
+}
 
 @main
 struct rDosApp: App {
@@ -33,9 +56,10 @@ struct rDosApp: App {
             MainView()
                 .environment(settings)
                 .environment(onboarding)
-                .preferredColorScheme(settings.appearance.colorScheme)
-                // 外观切回“跟随系统”时强制重建，避免停留在上一个明确浅/深色
-                .id(settings.appearance)
+                .onAppear { AppearanceApplier.apply(settings.appearance) }
+                .onChange(of: settings.appearance) { _, newValue in
+                    AppearanceApplier.apply(newValue)
+                }
         }
         .modelContainer(container)
     }
