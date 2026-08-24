@@ -85,7 +85,7 @@ struct SettingsView: View {
                 } header: {
                     Text("日程")
                 } footer: {
-                    Text("“今天” 从几点开始。影响时间线分组与小组件统计。")
+                    Text("“今天” 从几点开始。影响小组件里“今日待办”的统计口径；时间线按自然日（零点）分组。")
                 }
 
                 Section {

@@ -22,6 +22,15 @@ enum DayPlanner {
         return calendar.date(byAdding: .minute, value: offset - 24 * 60, to: midnight) ?? candidate
     }
 
+    /// 自然日偏移（0=今天，1=明天，-1=昨天），用于时间线分组与徽章；
+    /// 与“每日开始时间”无关，避免刚过零点时把新记录算进“明天”。
+    static func naturalDayIndex(of day: Date, now: Date = Date()) -> Int {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: now)
+        let dayStart = calendar.startOfDay(for: day)
+        return calendar.dateComponents([.day], from: todayStart, to: dayStart).day ?? 0
+    }
+
     /// 某一天相对当前有效一天的偏移天数（0=今天，1=明天，-1=昨天）。
     static func dayIndex(of day: Date, hour: Int, minute: Int, now: Date = Date()) -> Int {
         let currentBoundary = currentDayStart(now: now, hour: hour, minute: minute)

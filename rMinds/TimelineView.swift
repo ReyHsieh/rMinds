@@ -107,7 +107,7 @@ struct TimelineView: View {
     }
 
     private func dayTitle(_ day: Date) -> String {
-        let index = DayPlanner.dayIndex(of: day, hour: 4, minute: 0)
+        let index = DayPlanner.naturalDayIndex(of: day)
         let dateText = DayPlanner.localizedDate(day)
         switch index {
         case 0: return "今天 · \(dateText)"

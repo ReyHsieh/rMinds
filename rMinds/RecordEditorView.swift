@@ -396,8 +396,7 @@ struct RecordEditorView: View {
 
     private var dayMenuText: String {
         guard let day = dueDay else { return "某天" }
-        let index = DayPlanner.dayIndex(of: day, hour: 0, minute: 0)
-        switch index {
+        switch DayPlanner.naturalDayIndex(of: day) {
         case 0: return "今天"
         case 1: return "明天"
         case 2: return "后天"

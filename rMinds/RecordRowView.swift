@@ -308,7 +308,7 @@ struct RecordRowView: View {
 
     private var dueBadge: String? {
         guard let day = record.dueDay else { return nil }
-        let index = DayPlanner.dayIndex(of: day, hour: settings.dayStartHour, minute: settings.dayStartMinute)
+        let index = DayPlanner.naturalDayIndex(of: day)
         var label = DayPlanner.dayLabel(for: index, day: day)
             .replacingOccurrences(of: " · ", with: " ")
             .capitalized

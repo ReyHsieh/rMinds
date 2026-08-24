@@ -304,8 +304,7 @@ struct RecordInputBar: View {
         case .none: return ""
         case .someday: return "某天待办"
         case .day(let date):
-            let index = DayPlanner.dayIndex(of: date, hour: settings.dayStartHour, minute: settings.dayStartMinute)
-            switch index {
+            switch DayPlanner.naturalDayIndex(of: date) {
             case 0: return "今日待办"
             case 1: return "明日待办"
             default: return DayPlanner.localizedDate(date)
@@ -481,37 +480,40 @@ struct InputTextEditor: View {
                     onChange(new)
                 }
 
-            if text.isEmpty {
-                Text(placeholder)
-                    .font(.system(size: FS.s(16), weight: .medium))
-                    .foregroundStyle(Color.secondaryText)
-                    // 补偿 TextEditor 的内部内边距，与光标起点对齐
-                    .padding(.leading, 5)
-                    .padding(.top, 13)
-                    .allowsHitTesting(false)
-            }
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
         .frame(minWidth: 120)
         // 镜像测量层：挂在 overlay 不参与布局，仅报告内容真实高度
         .background(
+            // 镜像层：与真实文本同坐标系——占位符也放这里，天然与光标对齐
             Color.clear
                 .frame(height: 0)
                 .overlay(alignment: .topLeading) {
-                    Text(text.isEmpty ? " " : text)
-                        .font(.system(size: FS.s(16), weight: .medium))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .hidden()
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .padding(.horizontal, -4)
-                        .onGeometryChange(for: CGFloat.self) { proxy in
-                            proxy.size.height
-                        } action: { height in
-                            measuredHeight = height
+                    ZStack(alignment: .topLeading) {
+                        Text(text.isEmpty ? " " : text)
+                            .font(.system(size: FS.s(16), weight: .medium))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .hidden()
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .onGeometryChange(for: CGFloat.self) { proxy in
+                                proxy.size.height
+                            } action: { height in
+                                measuredHeight = height
+                            }
+
+                        if text.isEmpty {
+                            Text(placeholder)
+                                .font(.system(size: FS.s(16), weight: .medium))
+                                .foregroundStyle(Color.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
-                        .allowsHitTesting(false)
+                    }
+                    .padding(.horizontal, -4)
+                    .allowsHitTesting(false)
                 }
+                .padding(.top, -8)
         )
     }
 }
