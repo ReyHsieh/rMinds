@@ -556,7 +556,6 @@ struct RecordEditorView: View {
 
     // MARK: 引用
 
-    @State private var showQuotePicker = false
     @State private var selectedQuoteID: UUID?
 
     private var quoteCard: some View {
@@ -571,7 +570,7 @@ struct RecordEditorView: View {
                 HStack(spacing: 8) {
                     Capsule().fill(Color.secondaryText.opacity(0.4)).frame(width: 2.5)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(QuotePickerSheet.kindLabel(quoted))
+                        Text(Self.kindLabel(quoted))
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(Color.secondaryText)
                         Text(quoted.text.isEmpty ? "—" : quoted.text)
@@ -585,32 +584,52 @@ struct RecordEditorView: View {
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.badgeBackground))
             }
 
-            HStack(spacing: 8) {
+            if resolvedQuote != nil {
                 Button {
-                    showQuotePicker = true
-                } label: {
-                    Label(resolvedQuote == nil ? "添加引用" : "更换引用", systemImage: "quote.opening")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.primaryText)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(Capsule().fill(Color.chipFill))
-                }
-                .buttonStyle(PressableStyle(scale: 0.93))
-
-                if resolvedQuote != nil {
-                    Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            selectedQuoteID = nil
-                        }
-                    } label: {
-                        Label("移除", systemImage: "trash")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.red)
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        selectedQuoteID = nil
                     }
-                    .buttonStyle(.plain)
+                } label: {
+                    Label("移除引用", systemImage: "trash")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.red)
                 }
-                Spacer()
+                .buttonStyle(.plain)
+            }
+
+            // 最近的记录：点选即引用（长按时间线任意条目也可引用）
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(recentRecords.prefix(12)) { candidate in
+                        if candidate.id != editing.id {
+                            Button {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    selectedQuoteID = candidate.id
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: Self.kindIcon(candidate))
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(Color.secondaryText)
+                                    Text(candidate.text.isEmpty ? Self.kindLabel(candidate) : candidate.text)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(Color.primaryText)
+                                        .lineLimit(1)
+                                        .frame(maxWidth: 150, alignment: .leading)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                                .background(
+                                    Capsule().fill(selectedQuoteID == candidate.id
+                                        ? AnyShapeStyle(Color.accent(for: settings.accent))
+                                        : AnyShapeStyle(Color.chipFill))
+                                )
+                            }
+                            .buttonStyle(PressableStyle(scale: 0.93))
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
             }
         }
         .padding(14)
@@ -619,13 +638,29 @@ struct RecordEditorView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.cardTint)
         )
-        .sheet(isPresented: $showQuotePicker) {
-            QuotePickerSheet(records: allRecords) { picked in
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                    selectedQuoteID = picked.id
-                }
-                showQuotePicker = false
-            }
+    }
+
+    private var recentRecords: [Record] {
+        allRecords
+            .filter { $0.deletedAt == nil && $0.id != editing.id }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    static func kindIcon(_ record: Record) -> String {
+        switch record.kind {
+        case .text: return "text.quote"
+        case .todo: return record.isDone ? "checkmark.circle.fill" : "circle"
+        case .photo: return "photo"
+        case .voice: return "waveform"
+        }
+    }
+
+    static func kindLabel(_ record: Record) -> String {
+        switch record.kind {
+        case .text: return "文字记录"
+        case .todo: return "待办"
+        case .photo: return "照片"
+        case .voice: return "语音"
         }
     }
 

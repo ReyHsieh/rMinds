@@ -8,9 +8,9 @@ import UIKit
 struct PanGesture: UIGestureRecognizerRepresentable {
     typealias UIGestureRecognizerType = UIPanGestureRecognizer
 
-    var onBegan: (CGPoint) -> Void
-    var onChanged: (CGPoint) -> Void
-    var onEnded: (CGPoint, CGFloat) -> Void   // 结束点位置 + x 方向速度(pt/s)
+    var onBegan: () -> Void
+    var onChanged: (CGSize) -> Void   // 位移（相对手势起点）
+    var onEnded: (CGSize, CGFloat) -> Void   // 最终位移 + x 方向速度(pt/s)
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
         Coordinator(parent: self)
@@ -31,16 +31,18 @@ struct PanGesture: UIGestureRecognizerRepresentable {
         context: Context
     ) {
         guard let view = recognizer.view else { return }
-        let location = recognizer.location(in: view)
+        // 用 translation(in:) 而非 location：视图自身带位移时 location 坐标会漂移
+        let point = recognizer.translation(in: view)
+        let translation = CGSize(width: point.x, height: point.y)
         switch recognizer.state {
         case .began:
-            context.coordinator.parent.onBegan(location)
+            context.coordinator.parent.onBegan()
         case .changed:
-            context.coordinator.parent.onChanged(location)
+            context.coordinator.parent.onChanged(translation)
         case .ended:
-            context.coordinator.parent.onEnded(location, recognizer.velocity(in: view).x)
+            context.coordinator.parent.onEnded(translation, recognizer.velocity(in: view).x)
         default:
-            context.coordinator.parent.onEnded(location, 0)
+            context.coordinator.parent.onEnded(translation, 0)
         }
     }
 
@@ -56,49 +58,3 @@ struct PanGesture: UIGestureRecognizerRepresentable {
 }
 
 
-/// 原生长按手势（与 PanGesture 同思路：绕开 SwiftUI 手势合成器，
-/// 子视图手势不再屏蔽行级长按）。达到时长即触发一次。
-struct LongPressRepresentable: UIGestureRecognizerRepresentable {
-    typealias UIGestureRecognizerType = UILongPressGestureRecognizer
-
-    var minimumDuration: TimeInterval = 0.45
-    var onTrigger: () -> Void
-
-    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
-        Coordinator(parent: self)
-    }
-
-    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
-        let recognizer = UILongPressGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.fire(_:))
-        )
-        recognizer.minimumPressDuration = minimumDuration
-        recognizer.allowableMovement = 24
-        recognizer.delegate = context.coordinator
-        return recognizer
-    }
-
-    func updateUIGestureRecognizer(
-        _ recognizer: UILongPressGestureRecognizer,
-        context: Context
-    ) {
-        context.coordinator.parent = self
-    }
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        var parent: LongPressRepresentable
-        init(parent: LongPressRepresentable) { self.parent = parent }
-
-        @objc func fire(_ recognizer: UILongPressGestureRecognizer) {
-            if recognizer.state == .began {
-                parent.onTrigger()
-            }
-        }
-
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
-        ) -> Bool { true }
-    }
-}

@@ -33,7 +33,6 @@ struct RecordRowView: View {
     @State private var isDragging = false
     @State private var suppressTap = false
     @State private var horizontalLock = false
-    @State private var panStart: CGPoint?
     @State private var showPhoto = false
 
     private var audio = AudioHelper.shared
@@ -54,12 +53,6 @@ struct RecordRowView: View {
             content
                 .offset(x: offset)
                 .gesture(panGesture)
-                .gesture(
-                    LongPressRepresentable {
-                        haptic.impactOccurred()
-                        actions.onQuote(record)
-                    }
-                )
         }
         .padding(.vertical, 5)
     }
@@ -103,6 +96,24 @@ struct RecordRowView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { handleTap() }
+        .contextMenu {
+            Button {
+                haptic.impactOccurred()
+                actions.onQuote(record)
+            } label: {
+                Label("引用", systemImage: "quote.opening")
+            }
+            Button {
+                actions.onTogglePin(record)
+            } label: {
+                Label(record.isPinned ? "取消置顶" : "置顶", systemImage: record.isPinned ? "pin.slash" : "pin")
+            }
+            Button(role: .destructive) {
+                actions.onDelete(record)
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
+        }
         .fullScreenCover(isPresented: $showPhoto) {
             PhotoViewer(photoData: record.photoData)
         }
@@ -439,17 +450,16 @@ struct RecordRowView: View {
 
     private var panGesture: PanGesture {
         PanGesture(
-            onBegan: { location in
-                panStart = location
+            onBegan: {
                 horizontalLock = false
             },
-            onChanged: { location in
-                guard let start = panStart else { return }
-                let width = location.x - start.x
-                let height = location.y - start.y
+            onChanged: { translation in
+                let width = translation.width
+                let height = translation.height
                 if abs(width) > 8 || abs(height) > 8 {
                     suppressTap = true
                 }
+                // 方向锁定：明确横向才接管；竖向交给滚动
                 if !horizontalLock {
                     if abs(width) > 14 && abs(width) > abs(height) * 1.2 {
                         horizontalLock = true
@@ -459,43 +469,35 @@ struct RecordRowView: View {
                         return
                     }
                 }
+                // 左滑（负）→ 待办完成；右滑（正）→ 置顶+删除
                 offset = min(
                     max(dragStartOffset + width, -trailingWidth),
                     leadingWidth
                 )
             },
-            onEnded: { location, velocity in
-                guard horizontalLock, let start = panStart else {
-                    panStart = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        suppressTap = false
-                    }
-                    return
-                }
-                horizontalLock = false
-                isDragging = false
-                let translation = location.x - start.x
-
+            onEnded: { translation, velocity in
+                let width = translation.width
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     suppressTap = false
                 }
-                // 全划：右滑方向 → 置顶；左滑方向（待办）→ 标记完成
-                if velocity > 700 || translation > 150 {
+                guard horizontalLock else { return }
+                horizontalLock = false
+                isDragging = false
+
+                // 全划：右滑直达置顶；左滑（待办）直达完成
+                if velocity > 700 || width > 150 {
                     haptic.impactOccurred()
                     actions.onTogglePin(record)
-                    panStart = nil
                     withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { offset = 0 }
                     return
                 }
-                if record.isTodo, velocity < -700 || translation < -150 {
+                if record.isTodo, velocity < -700 || width < -150 {
                     haptic.impactOccurred()
                     actions.onToggleDone(record)
-                    panStart = nil
                     withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { offset = 0 }
                     return
                 }
                 settle()
-                panStart = nil
             }
         )
     }

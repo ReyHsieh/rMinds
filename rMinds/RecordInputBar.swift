@@ -22,7 +22,6 @@ struct RecordInputBar: View {
     }
 
     var onSend: (OutgoingDraft) -> Void
-    var onRequestQuotePicker: () -> Void
     @Binding var pendingQuote: Record?
 
     @Environment(AppSettings.self) private var settings
@@ -287,15 +286,6 @@ struct RecordInputBar: View {
                     .foregroundStyle(Color.secondaryText)
                     .frame(width: 38, height: 38)
                     .background(Circle().fill(Color.chipFill))
-            }
-            .buttonStyle(PressableStyle(scale: 0.9))
-
-            Button(action: onRequestQuotePicker) {
-                Image(systemName: "quote.opening")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(pendingQuote == nil ? Color.secondaryText : Color.onPrimary)
-                    .frame(width: 38, height: 38)
-                    .background(Circle().fill(pendingQuote == nil ? Color.chipFill : Color.accent(for: settings.accent)))
             }
             .buttonStyle(PressableStyle(scale: 0.9))
 
