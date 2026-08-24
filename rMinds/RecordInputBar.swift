@@ -486,35 +486,67 @@ struct InputTextEditor: View {
         .frame(minWidth: 120)
         // 镜像测量层：挂在 overlay 不参与布局，仅报告内容真实高度
         .background(
-            // 镜像层：与真实文本同坐标系——占位符也放这里，天然与光标对齐
+            // 镜像测量层：报告内容真实高度（补偿外层 padding，与编辑区对齐）
             Color.clear
                 .frame(height: 0)
                 .overlay(alignment: .topLeading) {
-                    ZStack(alignment: .topLeading) {
-                        Text(text.isEmpty ? " " : text)
-                            .font(.system(size: FS.s(16), weight: .medium))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .hidden()
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                            .onGeometryChange(for: CGFloat.self) { proxy in
-                                proxy.size.height
-                            } action: { height in
-                                measuredHeight = height
-                            }
-
-                        if text.isEmpty {
-                            Text(placeholder)
-                                .font(.system(size: FS.s(16), weight: .medium))
-                                .foregroundStyle(Color.secondaryText)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                    Text(text.isEmpty ? " " : text)
+                        .font(.system(size: FS.s(16), weight: .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .onGeometryChange(for: CGFloat.self) { proxy in
+                            proxy.size.height
+                        } action: { height in
+                            measuredHeight = height
                         }
-                    }
-                    .padding(.horizontal, -4)
-                    .allowsHitTesting(false)
+                        .allowsHitTesting(false)
                 }
+                .padding(.horizontal, -4)
                 .padding(.top, -8)
         )
+    }
+}
+
+/// 找到 TextEditor 底层的 UITextView 并清零其内边距
+/// （textContainerInset + lineFragmentPadding≈5pt，SwiftUI 无 API 可控，
+///  是光标与占位符错位的根因；社区标准解法：内省后置零）。
+struct EditorInsetRemover: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        DispatchQueue.main.async { configure(from: view) }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
+
+    private func configure(from view: UIView) {
+        guard let superview = view.superview else { return }
+        if let textView = superview as? UITextView {
+            apply(to: textView)
+            return
+        }
+        for subview in superview.subviews {
+            if let textView = findTextView(in: subview) {
+                apply(to: textView)
+                return
+            }
+        }
+        configure(from: superview)
+    }
+
+    private func findTextView(in view: UIView) -> UITextView? {
+        if let textView = view as? UITextView { return textView }
+        for subview in view.subviews {
+            if let textView = findTextView(in: subview) { return textView }
+        }
+        return nil
+    }
+
+    private func apply(to textView: UITextView) {
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.backgroundColor = .clear
     }
 }
 
