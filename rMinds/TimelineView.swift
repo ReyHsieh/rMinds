@@ -25,9 +25,13 @@ struct TimelineView: View {
         records.filter(\.isPinned).sorted { $0.createdAt > $1.createdAt }
     }
 
+    @State private var lastFirstRecordID: PersistentIdentifier?
+
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                Color.clear.frame(height: 0).id("timeline-top")
                 if !pinnedRecords.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("置顶")
@@ -59,11 +63,33 @@ struct TimelineView: View {
                     }
                 }
             }
-            .padding(.top, contentTopInset + 6)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 120)
+                .padding(.top, contentTopInset + 6)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+        .onChange(of: records.first?.persistentModelID) { _, _ in
+            // 新记录插入到顶部（且是更新的一条）时，滚动定位最新一条
+            let newFirst = records.first
+            let isNewer: Bool
+            if let newFirst, let lastID = lastFirstRecordID,
+               let oldFirst = records.first(where: { $0.persistentModelID == lastID }) {
+                isNewer = newFirst.createdAt > oldFirst.createdAt
+            } else if newFirst != nil, lastFirstRecordID == nil {
+                isNewer = false
+            } else {
+                isNewer = newFirst != nil && lastFirstRecordID != nil
+            }
+            defer { lastFirstRecordID = newFirst?.persistentModelID }
+            guard isNewer else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                proxy.scrollTo("timeline-top", anchor: .top)
+            }
+        }
+        .onAppear {
+            lastFirstRecordID = records.first?.persistentModelID
+        }
+        }
     }
 
     private func daySection(_ section: DaySection) -> some View {

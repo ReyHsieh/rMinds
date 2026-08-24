@@ -153,7 +153,7 @@ struct RecordInputBar: View {
                 }
             }
 
-            if let date = pendingTodoDateForChip {
+            if pendingTodo != .none {
                 todoChip
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -211,11 +211,6 @@ struct RecordInputBar: View {
                 recording = false
             }
         }
-    }
-
-    private var pendingTodoDateForChip: Date? {
-        if case .day(let date) = pendingTodo { return date }
-        return nil
     }
 
     private func removeButton(_ action: @escaping () -> Void) -> some View {
@@ -490,7 +485,9 @@ struct InputTextEditor: View {
                 Text(placeholder)
                     .font(.system(size: FS.s(16), weight: .medium))
                     .foregroundStyle(Color.secondaryText)
-                    .padding(.top, 8)
+                    // 补偿 TextEditor 的内部内边距，与光标起点对齐
+                    .padding(.leading, 5)
+                    .padding(.top, 13)
                     .allowsHitTesting(false)
             }
         }
