@@ -1,44 +1,38 @@
-# rDos
+# rMinds
 
-一款极简黑白风格的 iOS 待办应用。SwiftUI + SwiftData 构建，使用 iOS 26 Liquid Glass 设计语言，支持桌面与锁屏小组件。
+记录一切值得记住的：碎碎念、待办、照片和语音。一款聊天式时间线记录应用，SwiftUI + SwiftData 构建，iOS 26 Liquid Glass 设计，支持桌面与锁屏小组件。
 
-![light](Screenshots/home-light.png)
-![dark](Screenshots/home-dark.png)
+> 前身是 [rDos](https://x.com/daimajia/status/2091362554291577217)（极简待办应用），2.0 起转型为通用记录工具。
 
 ## 设计理念
 
-本项目的核心灵感来自 [@daimajia](https://x.com/daimajia) 的这条[推文](https://x.com/daimajia/status/2091362554291577217)：
+待办应用回答的是"什么必须在什么时候完成"；但生活里更多的是——
 
-> 好多事，我并不想甚至也没有办法安排到底什么时候一定要完成。
+> 好多事，我并不想甚至也没有办法安排到底什么时候一定要完成。—— [@daimajia](https://x.com/daimajia)
 
-很多事没法（也不想）安排一个确定的完成日期。因此 rDos 把任务分成两种：
-
-- **有日期的任务** — 出现在 Home，按 Today / Coming up（Tomorrow、N DAYS…）分组
-- **某天（Someday）** — 那些暂时没有明确期限的事，先记下来，哪天想做了再给它一个日期
-
-感谢这个 idea 👏
+rMinds 把一切记录统一进一条按时间倒序的**时间线**：碎碎念、待办、照片、语音混排在一起，随手记、不强迫组织。想归拢的时候，用 **#标签**（正文里写 `#想法` `#工作`）在分类页聚合即可。
 
 ## 功能
 
-- **三标签页**：Home（按天分组）/ Someday（无日期任务）/ Archive（归档）
-- **任务**：标题 + 正文（进入编辑时展示）、日期（今天/明天/自选/某天）、具体时间、到点提醒（本地通知）
-- **手势**：
-  - 右滑任务 → 标记完成
-  - 左滑任务 → 归档 / 删除（划到底直接触发）
-  - 点任务 → 直接编辑
-- **归档**：手动归档 + 已完成任务次日自动归档，Archive 页右滑可恢复
-- **每日开始时间**：可自定义"今天"从几点开始（默认凌晨 4 点），影响分组与归档时机
-- **小组件**：桌面小/中/大 + 锁屏环形/矩形/内联，实时展示今日进度与即将到来的任务
-- **外观**：浅色 / 深色 / 跟随系统
-- **新手引导**：首次启动自动播放，设置里可重新查看
-- 纯本地存储（SwiftData），无账号、无云端、无追踪
+- **时间线**：一切记录按天倒序（今天 · 8月24日 / 昨天 / …），左侧时间列
+- **四种记录**：
+  - 碎碎念文字：输入栏敲字回车即入流
+  - 待办：输入栏一键切待办模式，可设日期/时间/到点提醒，时间线上可勾选
+  - 照片：系统相册选择器，时间线缩略图 + 全屏查看
+  - 语音：输入栏按住麦克风录音，条目内直接播放
+- **#标签分类**：正文里的 `#标签` 自动解析，分类页按标签聚合统计、点入筛选
+- **手势**：右滑待办标记完成，左滑任何记录删除，点按进入编辑
+- **小组件**：桌面小/中/大（待办进度 + 最近记录）+ 锁屏环形/矩形/内联
+- **外观**：浅色 / 深色 / 跟随系统，实时切换
+- **本地通知**：带时间的待办到点提醒
+- 纯本地存储（SwiftData + App Group），无账号、无云端、无追踪
+- 旧版 rDos 的任务数据会在首次启动时自动迁移为待办记录
 
 ## 技术栈
 
-- Swift 5 / SwiftUI / SwiftData
-- iOS 26+（Liquid Glass、glassEffect、`ultraThinMaterial` 等）
-- WidgetKit（小组件与主 App 通过 App Group 共享数据库）
-- 本地通知（UserNotifications）
+- Swift 5 / SwiftUI / SwiftData / WidgetKit
+- iOS 26+（Liquid Glass、ultraThinMaterial、sensoryFeedback 等）
+- AVAudioRecorder / AVAudioPlayer（语音）
 - 零第三方依赖
 
 ## 构建
@@ -53,27 +47,30 @@ xcodebuild -project rDos.xcodeproj -scheme rDos -configuration Release \
   -destination 'platform=iOS,id=<设备UDID>' -allowProvisioningUpdates build
 ```
 
-或直接用 Xcode 打开 `rDos.xcodeproj`，选设备后 Cmd+R。
-
-> Debug 构建首次启动会预置少量示例任务用于界面预览（设置 → 开发者选项可清除）；Release 构建不包含任何预置数据。
+> Debug 构建首次启动会预置少量示例记录（设置 → 开发者选项可清除）；Release 构建不包含任何预置数据。
 
 ## 项目结构
 
 ```
 rDos/
-  rDosApp.swift          # 入口、容器、调试示例数据(#if DEBUG)
-  TaskItem.swift         # SwiftData 模型 + App Group 共享
+  rDosApp.swift          # 入口、容器、旧数据迁移、调试示例(#if DEBUG)
+  Record.swift           # 记录模型（文字/待办/照片/语音 + 标签解析）
+  TaskItem.swift         # 旧版模型（仅迁移用）+ App Group 共享
   AppSettings.swift      # 设置持久化(@Observable)
-  DayGrouping.swift      # 每日开始时间感知的日期分组
+  DayGrouping.swift      # 日期分组/格式化
   NotificationManager.swift
+  AudioHelper.swift      # 录音/播放
   Theme.swift            # 动态配色、按压反馈样式
-  MainView.swift         # 主界面（header/标签/主按钮）
-  HomeView.swift         # Today 卡片 + Coming up
-  TaskRowView.swift      # 任务行（滑动操作/展开）
-  TaskEditorView.swift   # 新建/编辑
-  SomedayArchiveViews.swift
-  SettingsView.swift
+  MainView.swift         # 主界面（header/标签/输入栏）
+  TimelineView.swift     # 时间线 + 分类页
+  RecordRowView.swift    # 记录行（四类型渲染/滑动/照片查看）
+  RecordInputBar.swift   # 底部输入栏（模式切换/照片/按住录音）
+  RecordEditorView.swift # 记录编辑器
   Onboarding.swift       # 新手引导浮层
 rDosWidgets/
   rDosWidgets.swift      # 桌面 + 锁屏小组件
 ```
+
+## 致谢
+
+- 产品 idea 与最初的原型启发来自 [@daimajia](https://x.com/daimajia/status/2091362554291577217) 的推文，以及 [Mynd](https://apps.apple.com/cn/app/mynd-%E8%AE%B0%E5%BD%95%E4%B8%80%E5%88%87%E7%9A%84%E8%81%8A%E5%A4%A9%E5%BC%8F%E6%97%A5%E8%AE%B0/id6759103234) 的聊天式日记形态。

@@ -69,14 +69,14 @@ struct OnboardingOverlay: View {
                 welcomeCard
             case .createTask:
                 holeStep(
-                    frameKey: "newTask",
+                    frameKey: "inputBar",
                     text: "点击 “New task”\n创建你的第一个任务",
                     cardBelowHole: false
                 )
             case .completeTask:
                 holeStep(
-                    frameKey: "firstTask",
-                    text: "点击左侧方框\n把这个任务标记为完成",
+                    frameKey: "firstRecord",
+                    text: "待办条目点击方框\n即可标记完成",
                     cardBelowHole: true
                 )
             case .done:
@@ -106,10 +106,10 @@ struct OnboardingOverlay: View {
                 Image(systemName: "checkmark.square")
                     .font(.system(size: 40, weight: .light))
                     .foregroundStyle(Color.primaryText)
-                Text("欢迎使用 rDos")
+                Text("欢迎使用 rMinds")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Color.primaryText)
-                Text("极简待办清单。\n三步上手：创建任务、勾选完成、回顾归档。")
+                Text("记录一切值得记住的：\n碎碎念、待办、照片和语音。")
                     .font(.system(size: 15, weight: .regular))
                     .foregroundStyle(Color.secondaryText)
                     .multilineTextAlignment(.center)
@@ -138,7 +138,7 @@ struct OnboardingOverlay: View {
                 Text("一切就绪")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Color.primaryText)
-                Text("开始记录你的待办吧。\n完成的任务会在次日归档。")
+                Text("给记录加上 #标签\n就能在分类页聚合回顾。")
                     .font(.system(size: 15, weight: .regular))
                     .foregroundStyle(Color.secondaryText)
                     .multilineTextAlignment(.center)

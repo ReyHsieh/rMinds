@@ -34,15 +34,16 @@ struct rDosApp: App {
 
     init() {
         do {
-            // 数据库放在 App Group 容器，供小组件扩展读取
-            if let url = SharedStore.storeURL {
-                container = try ModelContainer(
-                    for: TaskItem.self,
-                    configurations: ModelConfiguration(url: url)
-                )
+            // TaskItem 仅用于读取旧 rDos 数据并迁移到 Record
+            let schema = Schema([Record.self, TaskItem.self])
+            let configuration = SharedStore.storeURL.map { ModelConfiguration(schema: schema, url: $0) }
+            if let configuration {
+                container = try ModelContainer(for: schema, configurations: [configuration])
             } else {
-                container = try ModelContainer(for: TaskItem.self)
+                container = try ModelContainer(for: schema)
             }
+            // 旧 rDos 任务一次性迁移为记录
+            TaskMigrator.migrateIfNeeded(context: ModelContext(container))
         } catch {
             fatalError("无法创建本地数据库: \(error)")
         }
@@ -97,40 +98,43 @@ enum SeedData {
         try? context.delete(model: TaskItem.self)
     }
 
-    /// (标题, 天偏移, 时(=nil 无时间), 分, 是否已完成)
-    private static let samples: [(String, Int, Int?, Int, Bool)] = [
-        ("整理本周的产品草图", 0, 9, 0, false),
-        ("确认首页的中文文案", 0, 11, 30, true),
-        ("给植物浇水", 0, 14, 0, true),
-        ("买牛奶和鸡蛋", 0, 17, 30, true),
-        ("发送项目周报邮件", 1, nil, 0, false),
-        ("预约牙医", 1, 15, 0, false),
-        ("与团队讨论新需求", 4, 11, 0, false),
+    /// (文字, 类型, 分钟前, 待办相关: 是否完成/天偏移/时/分)
+    private static let samples: [(String, Record.Kind, Int, Bool, Int?, Int?, Int?)] = [
+        ("早上骑车的时候想到：碎碎念也许不需要被管理，被记住就够了 #想法", .text, 26, false, nil, nil, nil),
+        ("整理本周的产品草图", .todo, 240, false, 0, 9, 0),
+        ("确认 rMinds 的中文文案 #工作", .todo, 300, true, nil, nil, nil),
+        ("给植物浇水", .todo, 390, true, nil, nil, nil),
+        ("读《禅与摩托车维修艺术》第 3 章 #成长", .todo, 1500, false, 0, 21, 30),
+        ("突然觉得“记录”和“管理”是两件事，做产品时别混 #产品", .text, 1900, false, nil, nil, nil),
+        ("买牛奶和鸡蛋", .todo, 2900, true, nil, nil, nil),
+        ("和团队讨论新需求的方向 #工作", .todo, 3200, false, 1, 10, 0),
+        ("预约牙医", .todo, 3300, false, 1, 15, 0),
     ]
 
     private static func insertSamples(into context: ModelContext) {
         let calendar = Calendar.current
         let today = DayPlanner.normalizedDay(Date())
         let now = Date()
-        for (title, dayOffset, hour, minute, done) in samples {
-            let day = calendar.date(byAdding: .day, value: dayOffset, to: today)
-            let time: Date?
-            if let hour {
-                time = day.flatMap {
-                    calendar.date(bySettingHour: hour, minute: minute, second: 0, of: $0)
+        for (text, kind, minutesAgo, done, dayOffset, hour, minute) in samples {
+            let created = now.addingTimeInterval(-Double(minutesAgo) * 60)
+            var day: Date? = nil
+            var time: Date? = nil
+            if let dayOffset {
+                day = calendar.date(byAdding: .day, value: dayOffset, to: today)
+                if let hour, let day {
+                    time = calendar.date(bySettingHour: hour, minute: minute ?? 0, second: 0, of: day)
                 }
-            } else {
-                time = nil
             }
-            let task = TaskItem(
-                title: title,
-                day: day,
-                time: time,
-                wantsReminder: true,
-                isCompleted: done,
-                completedAt: done ? now : nil
+            let record = Record(
+                text: text,
+                kind: kind,
+                createdAt: created,
+                isDone: done,
+                dueDay: day,
+                dueTime: time,
+                wantsReminder: kind == .todo
             )
-            context.insert(task)
+            context.insert(record)
         }
     }
 }

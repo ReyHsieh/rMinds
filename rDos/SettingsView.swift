@@ -7,7 +7,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Environment(AppSettings.self) private var settings
     @Environment(OnboardingManager.self) private var onboarding
-    @Query private var tasks: [TaskItem]
+    @Query private var records: [Record]
 
     var body: some View {
         NavigationStack {
@@ -60,7 +60,7 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("版本", value: appVersion)
-                    LabeledContent("任务数", value: "\(tasks.count)")
+                    LabeledContent("记录数", value: "\(records.count)")
                 } header: {
                     Text("关于")
                 }
@@ -103,7 +103,7 @@ struct SettingsView: View {
                     settings.remindersEnabled = true
                     NotificationManager.requestAuthorization { granted in
                         if granted {
-                            NotificationManager.refreshPending(tasks: tasks, enabled: true)
+                            NotificationManager.refreshRecords(records, enabled: true)
                         } else {
                             settings.remindersEnabled = false
                         }

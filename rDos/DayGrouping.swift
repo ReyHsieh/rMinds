@@ -81,6 +81,15 @@ enum DayPlanner {
         formatted(date, format: "HH:mm")
     }
 
+    /// 本地化日期 "8月24日 · 周日"
+    static func localizedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "M月d日"
+        let weekday = weekdayLabel(date)
+        return "\(formatter.string(from: date)) · \(weekday)"
+    }
+
     private static func formatted(_ date: Date, format: String) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")

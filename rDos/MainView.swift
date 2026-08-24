@@ -11,9 +11,8 @@ struct HeaderHeightKey: PreferenceKey {
 
 struct MainView: View {
     enum Tab: String, CaseIterable, Identifiable {
-        case home = "Home"
-        case someday = "Someday"
-        case archive = "Archive"
+        case timeline = "时间线"
+        case tags = "分类"
         var id: String { rawValue }
     }
 
@@ -21,58 +20,30 @@ struct MainView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppSettings.self) private var settings
     @Environment(OnboardingManager.self) private var onboarding
-    @Query(sort: \TaskItem.createdAt) private var tasks: [TaskItem]
+    @Query(sort: \Record.createdAt, order: .reverse) private var records: [Record]
 
     @Namespace private var tabNamespace
-    // SceneStorage：外观切换引发整树重建时保住当前标签页
-    @SceneStorage("main.selectedTab") private var tabRawValue: String = Tab.home.rawValue
-
-    private var tab: Tab {
-        get { Tab(rawValue: tabRawValue) ?? .home }
-        nonmutating set { tabRawValue = newValue.rawValue }
-    }
+    @SceneStorage("main.selectedTab") private var tabRawValue: String = Tab.timeline.rawValue
+    @State private var selectedTag: String?
     @State private var showEditor = false
-    @State private var editingTask: TaskItem?
+    @State private var editingRecord: Record?
+    @State private var presetPhoto: Data?
+    @State private var presetVoice: (fileName: String, duration: TimeInterval)?
     @State private var showSettings = false
     @State private var frames: [String: CGRect] = [:]
     @State private var headerHeight: CGFloat = 0
-    @State private var taskCountBeforeEditor = 0
+    @State private var recordCountBeforeEditor = 0
 
-    // MARK: 数据分组
-
-    private var dayStart: Date {
-        DayPlanner.currentDayStart(hour: settings.dayStartHour, minute: settings.dayStartMinute)
+    private var tab: Tab {
+        get { Tab(rawValue: tabRawValue) ?? .timeline }
+        nonmutating set { tabRawValue = newValue.rawValue }
     }
 
-    /// 未归档：当日（含当日完成）的一切任务
-    private var activeTasks: [TaskItem] {
-        tasks.filter { task in
-            if task.isArchived { return false }
-            if task.isCompleted, let done = task.completedAt {
-                return done >= dayStart
-            }
-            return true
-        }
-    }
-
-    private var homeTasks: [TaskItem] { activeTasks.filter { $0.day != nil } }
-    private var somedayTasks: [TaskItem] { activeTasks.filter { $0.day == nil } }
-
-    /// 手动归档 + 完成时间在当日开始之前的任务
-    private var archiveTasks: [TaskItem] {
-        tasks.filter { task in
-            if task.isArchived { return true }
-            return task.isCompleted && (task.completedAt ?? .distantPast) < dayStart
-        }
-    }
-
-    private var taskActions: TaskActions {
-        TaskActions(
-            onToggle: toggle,
+    private var recordActions: RecordActions {
+        RecordActions(
+            onToggleDone: toggleDone,
             onEdit: openEditor,
-            onDelete: deleteTask,
-            onArchive: archiveTask,
-            onRestore: restoreTask
+            onDelete: deleteRecord
         )
     }
 
@@ -86,7 +57,22 @@ struct MainView: View {
                 header
             }
 
-            newTaskButton
+            if tab == .timeline {
+                RecordInputBar(
+                    onSend: quickAdd,
+                    onPickPhoto: { data in
+                        presetPhoto = data
+                        editingRecord = nil
+                        showEditor = true
+                    },
+                    onVoiceDone: { fileName, duration in
+                        presetVoice = (fileName, duration)
+                        editingRecord = nil
+                        showEditor = true
+                    }
+                )
+                .reportFrame("inputBar")
+            }
 
             if onboarding.isActive {
                 OnboardingOverlay(frames: frames)
@@ -94,7 +80,11 @@ struct MainView: View {
         }
         .background(Color.appBackground)
         .sheet(isPresented: $showEditor) {
-            TaskEditorView(editing: editingTask)
+            RecordEditorView(
+                editing: editingRecord,
+                presetPhoto: presetPhoto,
+                presetVoice: presetVoice
+            )
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -111,10 +101,12 @@ struct MainView: View {
         }
         .onChange(of: showEditor) { _, shown in
             if shown {
-                taskCountBeforeEditor = tasks.count
+                recordCountBeforeEditor = records.count
             } else {
-                onboarding.editorDismissed(createdTask: tasks.count > taskCountBeforeEditor)
-                WidgetCenter.shared.reloadAllTimelines()
+                onboarding.editorDismissed(createdTask: records.count > recordCountBeforeEditor)
+                presetPhoto = nil
+                presetVoice = nil
+                refreshNotifications()
             }
         }
         .onPreferenceChange(FrameReporterKey.self) { value in
@@ -125,8 +117,7 @@ struct MainView: View {
         }
     }
 
-    // 顶部：小号日期行 + 大标题 rDos + 标签页。
-    // 背景为实色渐隐遮挡（顶部含状态栏/灵动岛区域完全不透明，底部 28pt 渐隐）。
+    // 顶部：小号日期行 + 大标题 rMinds + 标签页 + 当前分类筛选指示。
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
@@ -148,8 +139,8 @@ struct MainView: View {
             }
 
             HStack(alignment: .firstTextBaseline) {
-                Text("rDos")
-                    .font(.system(size: 40, weight: .heavy))
+                Text("rMinds")
+                    .font(.system(size: 38, weight: .heavy))
                     .foregroundStyle(Color.primaryText)
                 Spacer()
                 Text(String(Calendar.current.component(.year, from: Date())))
@@ -159,11 +150,11 @@ struct MainView: View {
             .padding(.top, 5)
 
             tabsRow
-                .padding(.top, 24)
+                .padding(.top, 22)
         }
         .padding(.horizontal, 20)
         .padding(.top, 5)
-        .padding(.bottom, 24)
+        .padding(.bottom, 22)
         .background {
             Rectangle()
                 .fill(Color.appBackground)
@@ -191,15 +182,36 @@ struct MainView: View {
     }
 
     private var tabsRow: some View {
-        HStack(spacing: 28) {
+        HStack(spacing: 26) {
             ForEach(Tab.allCases) { item in
                 tabButton(item)
+            }
+            if let selectedTag {
+                tagFilterChip
             }
             Spacer()
         }
     }
 
-    /// 标签按钮：下划线用 matchedGeometryEffect 在标签间平滑滑动
+    private var tagFilterChip: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { selectedTag = nil }
+        } label: {
+            HStack(spacing: 4) {
+                Text("#\(selectedTag!)")
+                    .lineLimit(1)
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Color.onPrimary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.primaryText))
+        }
+        .buttonStyle(PressableStyle(scale: 0.93))
+    }
+
     private func tabButton(_ item: Tab) -> some View {
         let selected = tab == item
         return Button {
@@ -210,11 +222,11 @@ struct MainView: View {
                     .font(.system(size: 14, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? Color.primaryText : Color.secondaryText)
                 ZStack {
-                    Color.clear.frame(width: 28, height: 3.5)
+                    Color.clear.frame(width: 28, height: 3)
                     if selected {
                         Capsule()
                             .fill(Color.primaryText)
-                            .frame(width: 28, height: 3.5)
+                            .frame(width: 28, height: 3)
                             .matchedGeometryEffect(id: "tabUnderline", in: tabNamespace)
                     }
                 }
@@ -228,96 +240,64 @@ struct MainView: View {
     @ViewBuilder
     private var content: some View {
         switch tab {
-        case .home:
-            HomeView(
-                tasks: homeTasks,
-                dayStartHour: settings.dayStartHour,
-                dayStartMinute: settings.dayStartMinute,
-                actions: taskActions,
-                contentTopInset: headerHeight
+        case .timeline:
+            TimelineView(
+                records: records,
+                actions: recordActions,
+                contentTopInset: headerHeight,
+                selectedTag: selectedTag
             )
-        case .someday:
-            SomedayView(
-                tasks: somedayTasks,
-                actions: taskActions,
-                contentTopInset: headerHeight
-            )
-        case .archive:
-            ArchiveView(
-                tasks: archiveTasks,
-                actions: taskActions,
-                contentTopInset: headerHeight
-            )
+        case .tags:
+            TagsView(records: records) { tag in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    selectedTag = tag
+                    tab = .timeline
+                }
+            }
         }
-    }
-
-    // 黑色胶囊主按钮（浅色=黑底白字，深色=白底黑字）
-    private var newTaskButton: some View {
-        Button {
-            editingTask = nil
-            showEditor = true
-        } label: {
-            Text("New task")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Color.onPrimary)
-                .frame(width: 338, height: 52)
-                .background(Capsule(style: .continuous).fill(Color.primaryText))
-        }
-        .buttonStyle(PressableStyle(scale: 0.95))
-        .sensoryFeedback(.impact(weight: .light), trigger: showEditor)
-        .padding(.bottom, 2)
-        .reportFrame("newTask")
     }
 
     // MARK: 动作
 
-    private func openEditor(_ task: TaskItem) {
-        editingTask = task
+    private func quickAdd(_ text: String, isTodo: Bool) {
+        let record = Record(text: text, kind: isTodo ? .todo : .text)
+        context.insert(record)
+        try? context.save()
+        WidgetCenter.shared.reloadAllTimelines()
+        onboarding.editorDismissed(createdTask: true)
+    }
+
+    private func openEditor(_ record: Record) {
+        editingRecord = record
         showEditor = true
     }
 
-    private func toggle(_ task: TaskItem) {
+    private func toggleDone(_ record: Record) {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-            task.isCompleted.toggle()
-            task.completedAt = task.isCompleted ? Date() : nil
+            record.isDone.toggle()
         }
-        if task.isCompleted {
-            NotificationManager.cancel(task)
-        } else if task.wantsReminder, settings.remindersEnabled {
-            NotificationManager.schedule(task)
+        if record.isDone {
+            NotificationManager.cancelRecord(record)
+        } else if record.wantsReminder, settings.remindersEnabled {
+            NotificationManager.scheduleRecord(id: record.id, title: record.text, time: record.dueTime)
         }
-        onboarding.taskToggled(completed: task.isCompleted)
+        onboarding.taskToggled(completed: record.isDone)
     }
 
-    private func deleteTask(_ task: TaskItem) {
-        NotificationManager.cancel(task)
+    private func deleteRecord(_ record: Record) {
+        NotificationManager.cancelRecord(record)
+        if let file = record.voiceFileName {
+            AudioHelper.shared.deleteVoiceFile(file)
+        }
         withAnimation(.easeOut(duration: 0.2)) {
-            context.delete(task)
+            context.delete(record)
         }
         try? context.save()
-    }
-
-    private func archiveTask(_ task: TaskItem) {
-        NotificationManager.cancel(task)
-        withAnimation(.easeOut(duration: 0.2)) {
-            task.isArchived = true
-            task.archivedAt = Date()
-        }
-        try? context.save()
-    }
-
-    private func restoreTask(_ task: TaskItem) {
-        withAnimation(.easeOut(duration: 0.2)) {
-            task.isArchived = false
-            task.archivedAt = nil
-            task.isCompleted = false
-            task.completedAt = nil
-        }
-        try? context.save()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func refreshNotifications() {
-        NotificationManager.refreshPending(tasks: tasks, enabled: settings.remindersEnabled)
+        NotificationManager.refreshRecords(records, enabled: settings.remindersEnabled)
         WidgetCenter.shared.reloadAllTimelines()
     }
 }
