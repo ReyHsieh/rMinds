@@ -1,5 +1,18 @@
 import SwiftUI
 
+/// 图片解码缓存：避免滑动过程中每帧重建/重解码 UIImage
+enum RecordImageCache {
+    private static let cache = NSCache<NSString, UIImage>()
+
+    static func image(for data: Data, key: String) -> UIImage? {
+        let k = key as NSString
+        if let cached = cache.object(forKey: k) { return cached }
+        guard let image = UIImage(data: data) else { return nil }
+        cache.setObject(image, forKey: k)
+        return image
+    }
+}
+
 /// 时间线上的一条记录：左侧时间列 + 右侧内容。
 /// 待办可勾选（右滑）、所有类型左滑删除、点按进入编辑。
 struct RecordRowView: View {
@@ -12,6 +25,7 @@ struct RecordRowView: View {
     @State private var dragStartOffset: CGFloat = 0
     @State private var isDragging = false
     @State private var suppressTap = false
+    @State private var horizontalLock = false
     @State private var showPhoto = false
 
     private var audio = AudioHelper.shared
@@ -84,6 +98,7 @@ struct RecordRowView: View {
         .onLongPressGesture(minimumDuration: 0.45) {
             runGestureAction(settings.longPressAction)
         }
+        .sensoryFeedback(.impact(weight: .light), trigger: offset != 0)
         .fullScreenCover(isPresented: $showPhoto) {
             PhotoViewer(photoData: record.photoData)
         }
@@ -130,7 +145,8 @@ struct RecordRowView: View {
 
     private var photoBody: some View {
         Group {
-            if let data = record.photoData, let image = UIImage(data: data) {
+            if let data = record.photoData,
+               let image = RecordImageCache.image(for: data, key: record.id.uuidString) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -147,7 +163,7 @@ struct RecordRowView: View {
 
     /// 胶囊宽度随语音时长伸缩（30s 封顶 → 不超过一行）
     private var voiceBubbleWidth: CGFloat {
-        min(300, 96 + record.voiceDuration * 7)
+        max(160, min(300, 96 + record.voiceDuration * 7))
     }
 
     private var voiceBody: some View {
@@ -220,27 +236,25 @@ struct RecordRowView: View {
     @State private var transcribing = false
 
     private var transcribeButton: some View {
-        HStack(spacing: 3) {
+        Group {
             if transcribing {
                 ProgressView()
                     .controlSize(.mini)
+                    .frame(width: 24, height: 24)
             } else {
                 Image(systemName: "text.bubble")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        transcribeVoice()
+                    }
             }
-            Text(transcribing ? "转写中" : "转文字")
-                .font(.system(size: 11, weight: .semibold))
         }
         .foregroundStyle(Color.secondaryText)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(Capsule().fill(Color.badgeBackground))
-        .contentShape(Capsule())
-        .onTapGesture {
-            guard !transcribing else { return }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            transcribeVoice()
-        }
+        .background(Circle().fill(Color.badgeBackground))
+        .accessibilityLabel(transcribing ? "转写中" : "转文字")
     }
 
     private func transcribeVoice() {
@@ -351,18 +365,28 @@ struct RecordRowView: View {
     // MARK: 手势
 
     private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 12)
+        DragGesture(minimumDistance: 8)
             .onChanged { value in
-                if !isDragging {
-                    isDragging = true
-                    dragStartOffset = offset
+                let width = value.translation.width
+                let height = value.translation.height
+                // 方向锁定：明确横向才接管；竖向交给滚动
+                if !horizontalLock {
+                    if abs(width) > 10 && abs(width) > abs(height) * 1.3 {
+                        horizontalLock = true
+                        isDragging = true
+                        dragStartOffset = offset
+                    } else {
+                        return
+                    }
                 }
                 offset = min(
-                    max(dragStartOffset + value.translation.width, -trailingWidth),
+                    max(dragStartOffset + width, -trailingWidth),
                     leadingWidth
                 )
             }
             .onEnded { value in
+                guard horizontalLock else { return }
+                horizontalLock = false
                 isDragging = false
                 let translation = value.translation.width
                 let predicted = value.predictedEndTranslation.width
