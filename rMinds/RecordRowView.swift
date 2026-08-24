@@ -42,10 +42,10 @@ struct RecordRowView: View {
     private let openThreshold: CGFloat = 48
     private let haptic = UIImpactFeedbackGenerator(style: .light)
 
-    /// 右滑（leading）：置顶 + 删除
-    private var leadingWidth: CGFloat { actionSize * 2 + actionGap }
-    /// 左滑（trailing）：待办完成（非待办为 0，不可划）
-    private var trailingWidth: CGFloat { record.isTodo ? actionSize : 0 }
+    /// 右滑（leading）：待办完成（非待办为 0，不可划）
+    private var leadingWidth: CGFloat { record.isTodo ? actionSize : 0 }
+    /// 左滑（trailing）：置顶 + 删除
+    private var trailingWidth: CGFloat { actionSize * 2 + actionGap }
 
     var body: some View {
         ZStack {
@@ -53,6 +53,17 @@ struct RecordRowView: View {
             content
                 .offset(x: offset)
                 .gesture(panGesture)
+                .gesture(
+                    LongPressRepresentable {
+                        haptic.impactOccurred()
+                        // 抑制抬起后的单击，避免误触编辑
+                        suppressTap = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            suppressTap = false
+                        }
+                        actions.onQuote(record)
+                    }
+                )
         }
         .padding(.vertical, 5)
     }
@@ -96,24 +107,6 @@ struct RecordRowView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { handleTap() }
-        .contextMenu {
-            Button {
-                haptic.impactOccurred()
-                actions.onQuote(record)
-            } label: {
-                Label("引用", systemImage: "quote.opening")
-            }
-            Button {
-                actions.onTogglePin(record)
-            } label: {
-                Label(record.isPinned ? "取消置顶" : "置顶", systemImage: record.isPinned ? "pin.slash" : "pin")
-            }
-            Button(role: .destructive) {
-                actions.onDelete(record)
-            } label: {
-                Label("删除", systemImage: "trash")
-            }
-        }
         .fullScreenCover(isPresented: $showPhoto) {
             PhotoViewer(photoData: record.photoData)
         }
@@ -378,38 +371,6 @@ struct RecordRowView: View {
 
     private var actionsLayer: some View {
         HStack(spacing: actionGap) {
-            Button {
-                close()
-                haptic.impactOccurred()
-                actions.onTogglePin(record)
-            } label: {
-                actionIcon(
-                    systemName: record.isPinned ? "pin.slash" : "pin",
-                    background: Color.chipFill,
-                    foreground: Color.primaryText
-                )
-            }
-            .buttonStyle(.plain)
-            .opacity(leadingProgress)
-            .scaleEffect(0.7 + 0.3 * leadingProgress)
-
-            Button {
-                close()
-                haptic.impactOccurred()
-                actions.onDelete(record)
-            } label: {
-                actionIcon(
-                    systemName: "trash",
-                    background: Color.chipFill,
-                    foreground: .red
-                )
-            }
-            .buttonStyle(.plain)
-            .opacity(leadingProgress)
-            .scaleEffect(0.7 + 0.3 * leadingProgress)
-
-            Spacer(minLength: 0)
-
             if record.isTodo {
                 Button {
                     close()
@@ -423,9 +384,41 @@ struct RecordRowView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .opacity(trailingProgress)
-                .scaleEffect(0.7 + 0.3 * trailingProgress)
+                .opacity(leadingProgress)
+                .scaleEffect(0.7 + 0.3 * leadingProgress)
             }
+
+            Spacer(minLength: 0)
+
+            Button {
+                close()
+                haptic.impactOccurred()
+                actions.onTogglePin(record)
+            } label: {
+                actionIcon(
+                    systemName: record.isPinned ? "pin.slash" : "pin",
+                    background: Color.chipFill,
+                    foreground: Color.primaryText
+                )
+            }
+            .buttonStyle(.plain)
+            .opacity(trailingProgress)
+            .scaleEffect(0.7 + 0.3 * trailingProgress)
+
+            Button {
+                close()
+                haptic.impactOccurred()
+                actions.onDelete(record)
+            } label: {
+                actionIcon(
+                    systemName: "trash",
+                    background: Color.chipFill,
+                    foreground: .red
+                )
+            }
+            .buttonStyle(.plain)
+            .opacity(trailingProgress)
+            .scaleEffect(0.7 + 0.3 * trailingProgress)
         }
         .padding(.horizontal, 2)
     }
@@ -469,7 +462,7 @@ struct RecordRowView: View {
                         return
                     }
                 }
-                // 左滑（负）→ 待办完成；右滑（正）→ 置顶+删除
+                // 右滑（正）→ 待办完成；左滑（负）→ 置顶+删除
                 offset = min(
                     max(dragStartOffset + width, -trailingWidth),
                     leadingWidth
@@ -484,16 +477,16 @@ struct RecordRowView: View {
                 horizontalLock = false
                 isDragging = false
 
-                // 全划：右滑直达置顶；左滑（待办）直达完成
-                if velocity > 700 || width > 150 {
+                // 全划：右滑（待办）直达完成；左滑直达置顶
+                if record.isTodo, velocity > 700 || width > 150 {
                     haptic.impactOccurred()
-                    actions.onTogglePin(record)
+                    actions.onToggleDone(record)
                     withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { offset = 0 }
                     return
                 }
-                if record.isTodo, velocity < -700 || width < -150 {
+                if velocity < -700 || width < -150 {
                     haptic.impactOccurred()
-                    actions.onToggleDone(record)
+                    actions.onTogglePin(record)
                     withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { offset = 0 }
                     return
                 }
@@ -505,9 +498,9 @@ struct RecordRowView: View {
     /// 松手后的吸附：关闭干脆，展开轻微回弹
     private func settle() {
         let target: CGFloat
-        if offset > openThreshold {
+        if record.isTodo, offset > openThreshold {
             target = leadingWidth
-        } else if record.isTodo, offset < -openThreshold {
+        } else if offset < -openThreshold {
             target = -trailingWidth
         } else {
             target = 0

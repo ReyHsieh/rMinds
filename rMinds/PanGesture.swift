@@ -58,3 +58,51 @@ struct PanGesture: UIGestureRecognizerRepresentable {
 }
 
 
+
+
+/// 原生长按手势（绕开 SwiftUI 手势合成器，子视图手势不屏蔽）。
+/// 触发时置抑制标记，避免手指抬起后误触发单击。
+struct LongPressRepresentable: UIGestureRecognizerRepresentable {
+    typealias UIGestureRecognizerType = UILongPressGestureRecognizer
+
+    var minimumDuration: TimeInterval = 0.4
+    var onTrigger: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
+        let recognizer = UILongPressGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.fire(_:))
+        )
+        recognizer.minimumPressDuration = minimumDuration
+        recognizer.allowableMovement = 24
+        recognizer.delegate = context.coordinator
+        return recognizer
+    }
+
+    func updateUIGestureRecognizer(
+        _ recognizer: UILongPressGestureRecognizer,
+        context: Context
+    ) {
+        context.coordinator.parent = self
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: LongPressRepresentable
+        init(parent: LongPressRepresentable) { self.parent = parent }
+
+        @objc func fire(_ recognizer: UILongPressGestureRecognizer) {
+            if recognizer.state == .began {
+                parent.onTrigger()
+            }
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool { true }
+    }
+}
