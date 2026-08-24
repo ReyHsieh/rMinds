@@ -6,7 +6,6 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(AppSettings.self) private var settings
-    @Environment(OnboardingManager.self) private var onboarding
     @Query private var records: [Record]
 
     private var deletedRecords: [Record] {
@@ -129,19 +128,6 @@ struct SettingsView: View {
                     Text("数据")
                 } footer: {
                     Text("记录仅保存在本机。导出生成纯文本，可通过系统分享保存。")
-                }
-
-                Section {
-                    Button {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                            onboarding.restart()
-                        }
-                    } label: {
-                        Label("重新查看新手引导", systemImage: "sparkles")
-                    }
-                } header: {
-                    Text("新手引导")
                 }
 
                 Section {

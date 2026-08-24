@@ -28,7 +28,6 @@ enum AppearanceApplier {
 @main
 struct rDosApp: App {
     @State private var settings = AppSettings.shared
-    @State private var onboarding = OnboardingManager.shared
 
     let container: ModelContainer
 
@@ -56,7 +55,6 @@ struct rDosApp: App {
         WindowGroup {
             MainView()
                 .environment(settings)
-                .environment(onboarding)
                 .onAppear { AppearanceApplier.apply(settings.appearance) }
                 .onChange(of: settings.appearance) { _, newValue in
                     AppearanceApplier.apply(newValue)

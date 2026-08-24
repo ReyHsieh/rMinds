@@ -13,15 +13,12 @@ struct MainView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppSettings.self) private var settings
-    @Environment(OnboardingManager.self) private var onboarding
     @Query(sort: \Record.createdAt, order: .reverse) private var records: [Record]
 
     @State private var showEditor = false
     @State private var editingRecord: Record?
     @State private var showSettings = false
-    @State private var frames: [String: CGRect] = [:]
     @State private var headerHeight: CGFloat = 0
-    @State private var recordCountBeforeEditor = 0
 
     private var visibleRecords: [Record] {
         records.filter { $0.deletedAt == nil }
@@ -46,11 +43,6 @@ struct MainView: View {
             }
 
             RecordInputBar(onSend: quickAdd)
-                .reportFrame("inputBar")
-
-            if onboarding.isActive {
-                OnboardingOverlay(frames: frames)
-            }
         }
         .background(Color.appBackground)
         .sheet(isPresented: $showEditor) {
@@ -62,7 +54,6 @@ struct MainView: View {
             SettingsView()
         }
         .onAppear {
-            onboarding.startIfNeeded()
             refreshNotifications()
         }
         .onChange(of: scenePhase) { _, phase in
@@ -72,15 +63,9 @@ struct MainView: View {
             refreshNotifications()
         }
         .onChange(of: showEditor) { _, shown in
-            if shown {
-                recordCountBeforeEditor = records.count
-            } else {
-                onboarding.editorDismissed(createdTask: records.count > recordCountBeforeEditor)
+            if !shown {
                 refreshNotifications()
             }
-        }
-        .onPreferenceChange(FrameReporterKey.self) { value in
-            frames = value
         }
         .onPreferenceChange(HeaderHeightKey.self) { value in
             headerHeight = value
@@ -175,7 +160,6 @@ struct MainView: View {
         context.insert(record)
         try? context.save()
         WidgetCenter.shared.reloadAllTimelines()
-        onboarding.editorDismissed(createdTask: true)
     }
 
     private func openEditor(_ record: Record) {
@@ -192,7 +176,6 @@ struct MainView: View {
         } else if record.wantsReminder, settings.remindersEnabled {
             NotificationManager.scheduleRecord(id: record.id, title: record.text, time: record.dueTime)
         }
-        onboarding.taskToggled(completed: record.isDone)
     }
 
     private func deleteRecord(_ record: Record) {

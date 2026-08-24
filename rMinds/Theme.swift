@@ -136,27 +136,3 @@ struct PressableStyle: ButtonStyle {
     }
 }
 
-// MARK: - 新手引导用的布局取帧
-
-struct FrameReporterKey: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-extension View {
-    /// 把自身 frame(in: .global) 上报给祖先视图，key 为 nil 时不生效。
-    @ViewBuilder
-    func reportFrame(_ key: String?) -> some View {
-        if let key {
-            background(
-                GeometryReader { proxy in
-                    Color.clear.preference(key: FrameReporterKey.self, value: [key: proxy.frame(in: .global)])
-                }
-            )
-        } else {
-            self
-        }
-    }
-}

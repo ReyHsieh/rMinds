@@ -73,9 +73,8 @@ struct TimelineView: View {
                 .tracking(0.6)
                 .foregroundStyle(Color.secondaryText)
                 .padding(.leading, 2)
-            ForEach(Array(section.records.enumerated()), id: \.element.persistentModelID) { position, record in
+            ForEach(section.records) { record in
                 RecordRowView(record: record, actions: actions)
-                    .reportFrame(position == 0 && section.day == sections.first?.day ? "firstRecord" : nil)
             }
         }
         .clipped()
