@@ -176,8 +176,8 @@ struct MainView: View {
 
     // MARK: 动作
 
-    private func quickAdd(_ text: String, todoDate: Date?) {
-        let record = Record(text: text, kind: todoDate != nil ? .todo : .text, dueDay: todoDate)
+    private func quickAdd(_ text: String, dueDay: Date?, isTodo: Bool) {
+        let record = Record(text: text, kind: isTodo ? .todo : .text, dueDay: dueDay)
         context.insert(record)
         try? context.save()
         WidgetCenter.shared.reloadAllTimelines()

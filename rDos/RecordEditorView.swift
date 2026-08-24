@@ -39,20 +39,29 @@ struct RecordEditorView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             Capsule()
                 .fill(Color.secondaryText.opacity(0.25))
                 .frame(width: 36, height: 4)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 6)
 
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
             VStack(spacing: 8) {
                 if showAtMenu {
                     AtDateMenu(
-                        onPick: { date in
+                        onPickDay: { date in
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 isTodo = true
                                 dueDay = date
+                                showAtMenu = false
+                            }
+                        },
+                        onSomeday: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isTodo = true
+                                dueDay = nil
                                 showAtMenu = false
                             }
                         },
@@ -95,7 +104,15 @@ struct RecordEditorView: View {
 
             HStack(spacing: 8) {
                 toggleChip("待办", icon: "checklist", on: isTodo) {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { isTodo.toggle() }
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        isTodo.toggle()
+                        if !isTodo {
+                            dueDay = nil
+                            dueTime = nil
+                            showDatePicker = false
+                            showTimePicker = false
+                        }
+                    }
                 }
                 Spacer()
             }
@@ -114,7 +131,9 @@ struct RecordEditorView: View {
 
             flagCard
 
-            Spacer(minLength: 0)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 12) {
                 if editing != nil {
@@ -290,12 +309,12 @@ struct RecordEditorView: View {
 
     private var dayMenu: some View {
         Menu {
-            Button("无日期") { dueDay = nil; showDatePicker = false }
+            Button("某天（不定日期）") { dueDay = nil; showDatePicker = false }
             Button("今天") { dueDay = DayPlanner.normalizedDay(Date()); showDatePicker = false }
             Button("明天") { dueDay = dayOffset(1); showDatePicker = false }
             Button("后天") { dueDay = dayOffset(2); showDatePicker = false }
             Button("下周") { dueDay = dayOffset(7); showDatePicker = false }
-            Button("选择日期…") {
+            Button("具体日期…") {
                 customDate = dueDay ?? Date()
                 showDatePicker = true
             }
@@ -305,7 +324,7 @@ struct RecordEditorView: View {
     }
 
     private var dayMenuText: String {
-        guard let day = dueDay else { return "无日期" }
+        guard let day = dueDay else { return "某天" }
         let index = DayPlanner.dayIndex(of: day, hour: 0, minute: 0)
         switch index {
         case 0: return "今天"

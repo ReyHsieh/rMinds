@@ -3,13 +3,19 @@ import PhotosUI
 
 /// 底部输入栏：文字即时入流；输入 @ 弹出日期选择（自动转待办）；选照片（进编辑器）；按住录语音。
 struct RecordInputBar: View {
-    var onSend: (String, Date?) -> Void
+    enum PendingTodo: Equatable {
+        case none
+        case someday
+        case day(Date)
+    }
+
+    var onSend: (String, Date?, Bool) -> Void
     var onPickPhoto: (Data) -> Void
     var onVoiceDone: (String, TimeInterval) -> Void
 
     @Environment(AppSettings.self) private var settings
     @State private var draft = ""
-    @State private var pendingTodoDate: Date?
+    @State private var pendingTodo: PendingTodo = .none
     @State private var showAtMenu = false
     @State private var showAtCalendar = false
     @State private var atCalendarDate = Date()
@@ -25,9 +31,17 @@ struct RecordInputBar: View {
         VStack(spacing: 8) {
             if showAtMenu {
                 AtDateMenu(
-                    onPick: { date in
+                    onPickDay: { date in
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            pendingTodoDate = date
+                            pendingTodo = .day(date)
+                            showAtMenu = false
+                            showAtCalendar = false
+                        }
+                        focused = true
+                    },
+                    onSomeday: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            pendingTodo = .someday
                             showAtMenu = false
                             showAtCalendar = false
                         }
@@ -60,7 +74,7 @@ struct RecordInputBar: View {
                     .tint(Color.accent(for: settings.accent))
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            pendingTodoDate = DayPlanner.normalizedDay(atCalendarDate)
+                            pendingTodo = .day(DayPlanner.normalizedDay(atCalendarDate))
                             showAtCalendar = false
                         }
                         focused = true
@@ -73,6 +87,18 @@ struct RecordInputBar: View {
                             .background(Capsule().fill(Color.accent(for: settings.accent)))
                     }
                     .buttonStyle(PressableStyle(scale: 0.93))
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showAtCalendar = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.secondaryText)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(Color.badgeBackground))
+                    }
+                    .buttonStyle(PressableStyle(scale: 0.9))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
@@ -81,8 +107,8 @@ struct RecordInputBar: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            if let date = pendingTodoDate {
-                todoChip(date)
+            if pendingTodo != .none {
+                todoChip
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
@@ -97,7 +123,7 @@ struct RecordInputBar: View {
         .padding(.bottom, 6)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showAtMenu)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showAtCalendar)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingTodoDate)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingTodo)
         .background(
             Rectangle()
                 .fill(Color.appBackground)
@@ -147,7 +173,7 @@ struct RecordInputBar: View {
 
     private var inputBar: some View {
         HStack(spacing: 8) {
-            TextField(pendingTodoDate == nil ? "记录此刻…（@ 设为待办）" : "添加待办…", text: $draft, axis: .vertical)
+            TextField(pendingTodo == .none ? "记录此刻…（@ 设为待办）" : "添加待办…", text: $draft, axis: .vertical)
                 .font(.system(size: FS.s(16), weight: .medium))
                 .foregroundStyle(Color.primaryText)
                 .lineLimit(1...4)
@@ -167,7 +193,7 @@ struct RecordInputBar: View {
             holdToRecordButton
 
             Button(action: send) {
-                Image(systemName: pendingTodoDate == nil ? "arrow.up" : "checkmark")
+                Image(systemName: pendingTodo == .none ? "arrow.up" : "checkmark")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(canSend ? Color.onPrimary : Color.secondaryText)
                     .frame(width: 38, height: 38)
@@ -182,15 +208,15 @@ struct RecordInputBar: View {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// 待办日期胶囊：点按改期，×清除（回到普通记录）
-    private func todoChip(_ date: Date) -> some View {
+    /// 待办胶囊：点按改期/改某天，×取消待办（回到普通记录）
+    private var todoChip: some View {
         HStack(spacing: 8) {
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     showAtMenu = true
                 }
             } label: {
-                Label(todoChipText(date), systemImage: "calendar")
+                Label(todoChipText, systemImage: pendingTodo == .someday ? "sparkles" : "calendar")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.onPrimary)
             }
@@ -198,12 +224,12 @@ struct RecordInputBar: View {
 
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    pendingTodoDate = nil
+                    pendingTodo = .none
                 }
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color.onPrimary.opacity(0.8))
+                    .foregroundStyle(Color.onPrimary.opacity(0.85))
             }
             .buttonStyle(.plain)
         }
@@ -212,12 +238,17 @@ struct RecordInputBar: View {
         .background(Capsule().fill(Color.accent(for: settings.accent)))
     }
 
-    private func todoChipText(_ date: Date) -> String {
-        let index = DayPlanner.dayIndex(of: date, hour: settings.dayStartHour, minute: settings.dayStartMinute)
-        switch index {
-        case 0: return "今日待办"
-        case 1: return "明日待办"
-        default: return DayPlanner.localizedDate(date)
+    private var todoChipText: String {
+        switch pendingTodo {
+        case .none: return ""
+        case .someday: return "某天待办"
+        case .day(let date):
+            let index = DayPlanner.dayIndex(of: date, hour: settings.dayStartHour, minute: settings.dayStartMinute)
+            switch index {
+            case 0: return "今日待办"
+            case 1: return "明日待办"
+            default: return DayPlanner.localizedDate(date)
+            }
         }
     }
 
@@ -323,10 +354,12 @@ struct RecordInputBar: View {
     private func send() {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        onSend(trimmed, pendingTodoDate)
+        let isTodo = pendingTodo != .none
+        let dueDay: Date? = if case .day(let date) = pendingTodo { date } else { nil }
+        onSend(trimmed, dueDay, isTodo)
         draft = ""
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            pendingTodoDate = nil
+            pendingTodo = .none
             showAtMenu = false
             showAtCalendar = false
         }
@@ -334,21 +367,25 @@ struct RecordInputBar: View {
     }
 }
 
-/// @ 触发的日期快捷菜单（输入栏与编辑器共用）
+/// @ 触发的待办快捷菜单（输入栏与编辑器共用）：今日 / 明日 / 某天 / 具体日期…
 struct AtDateMenu: View {
-    var onPick: (Date?) -> Void
+    var onPickDay: (Date) -> Void
+    var onSomeday: () -> Void
     var onCustom: () -> Void
     var onCancel: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
             AtMenuButton(title: "今日") {
-                onPick(DayPlanner.normalizedDay(Date()))
+                onPickDay(DayPlanner.normalizedDay(Date()))
             }
             AtMenuButton(title: "明日") {
-                onPick(DayPlanner.normalizedDay(Date().addingTimeInterval(86_400)))
+                onPickDay(DayPlanner.normalizedDay(Date().addingTimeInterval(86_400)))
             }
-            AtMenuButton(title: "某日…", filled: false) {
+            AtMenuButton(title: "某天") {
+                onSomeday()
+            }
+            AtMenuButton(title: "具体日期…", filled: false) {
                 onCustom()
             }
             Spacer(minLength: 0)
