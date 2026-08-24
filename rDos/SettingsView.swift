@@ -110,7 +110,7 @@ struct SettingsView: View {
                     NavigationLink {
                         DeletedRecordsView()
                     } label: {
-                        Label("最近删除", systemImage: "trash")
+                        Label("最近删除", systemImage: "arrow.uturn.backward.circle")
                         Spacer()
                         Text("\(deletedRecords.count) 条")
                             .foregroundStyle(Color.secondaryText)

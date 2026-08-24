@@ -76,4 +76,5 @@ rDosWidgets/
 
 ## 致谢
 
-- 产品 idea 与最初的原型启发来自 [@daimajia](https://x.com/daimajia/status/2091362554291577217) 的推文，以及 [Mynd](https://apps.apple.com/cn/app/mynd-%E8%AE%B0%E5%BD%95%E4%B8%80%E5%88%87%E7%9A%84%E8%81%8A%E5%A4%A9%E5%BC%8F%E6%97%A5%E8%AE%B0/id6759103234) 的聊天式日记形态。
+- 待办一侧的产品 idea 来自 [@daimajia](https://x.com/daimajia/status/2091362554291577217) 的推文。
+- rMinds 改版（聊天式时间线记录形态）参考了 [@cbvivi](https://x.com/cbvivi) 的 [mynd](https://x.com/myndnote) 应用——[相关推文](https://x.com/cbvivi/status/2038245566505971716)，也可以在 [App Store](https://apps.apple.com/cn/app/mynd-%E8%AE%B0%E5%BD%95%E4%B8%80%E5%88%87%E7%9A%84%E8%81%8A%E5%A4%A9%E5%BC%8F%E6%97%A5%E8%AE%B0/id6759103234) 下载体验原版。
