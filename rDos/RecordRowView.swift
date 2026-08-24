@@ -68,7 +68,13 @@ struct RecordRowView: View {
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            runGestureAction(settings.doubleTapAction)
+        }
         .onTapGesture { handleTap() }
+        .onLongPressGesture(minimumDuration: 0.45) {
+            runGestureAction(settings.longPressAction)
+        }
         .fullScreenCover(isPresented: $showPhoto) {
             PhotoViewer(photoData: record.photoData)
         }
@@ -320,6 +326,31 @@ struct RecordRowView: View {
 
     private func close() {
         withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) { offset = 0 }
+    }
+
+    /// 可配置手势动作（设置 → 手势）
+    private func runGestureAction(_ action: GestureAction) {
+        guard action != .none, !suppressTap else { return }
+        haptic.impactOccurred()
+        switch action {
+        case .toggleHighlight:
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                record.isHighlighted.toggle()
+            }
+        case .toggleDone:
+            guard record.isTodo else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                record.isDone.toggle()
+            }
+        case .togglePin:
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                record.isPinned.toggle()
+            }
+        case .edit:
+            actions.onEdit(record)
+        case .none:
+            break
+        }
     }
 }
 

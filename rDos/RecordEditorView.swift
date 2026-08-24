@@ -46,16 +46,52 @@ struct RecordEditorView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 6)
 
-            TextField(isTodo ? "待办内容" : "记录点什么…", text: $text, axis: .vertical)
-                .font(.system(size: FS.s(20), weight: .semibold))
-                .foregroundStyle(Color.primaryText)
-                .focused($textFocused)
-                .submitLabel(.done)
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.cardTint)
-                )
+            VStack(spacing: 8) {
+                if showAtMenu {
+                    AtDateMenu(
+                        onPick: { date in
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isTodo = true
+                                dueDay = date
+                                showAtMenu = false
+                            }
+                        },
+                        onCustom: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isTodo = true
+                                showAtMenu = false
+                                showDatePicker = true
+                            }
+                        },
+                        onCancel: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showAtMenu = false
+                            }
+                        }
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                TextField(isTodo ? "待办内容" : "记录点什么…（@ 设为待办）", text: $text, axis: .vertical)
+                    .font(.system(size: FS.s(20), weight: .semibold))
+                    .foregroundStyle(Color.primaryText)
+                    .focused($textFocused)
+                    .submitLabel(.done)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.cardTint)
+                    )
+                    .onChange(of: text) { _, new in
+                        // 输入 @ 触发日期选择，并把 @ 从文本移除
+                        if new.hasSuffix("@") {
+                            text = String(new.dropLast())
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showAtMenu = true
+                            }
+                        }
+                    }
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showAtMenu)
 
             HStack(spacing: 8) {
                 toggleChip("待办", icon: "checklist", on: isTodo) {
@@ -250,6 +286,7 @@ struct RecordEditorView: View {
     @State private var showTimePicker = false
     @State private var customDate = Date()
     @State private var customTime = Date()
+    @State private var showAtMenu = false
 
     private var dayMenu: some View {
         Menu {

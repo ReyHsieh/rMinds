@@ -86,6 +86,23 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Picker("双击条目", selection: doubleTapBinding) {
+                        ForEach([GestureAction.none, .toggleHighlight, .toggleDone, .togglePin]) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                    Picker("长按条目", selection: longPressBinding) {
+                        ForEach([GestureAction.none, .toggleHighlight, .togglePin, .edit]) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                } header: {
+                    Text("手势")
+                } footer: {
+                    Text("自定义时间线上的快捷手势。单击始终为打开编辑。")
+                }
+
+                Section {
                     Button {
                         exportRecords()
                     } label: {
@@ -258,6 +275,14 @@ struct SettingsView: View {
 
     private var accentBinding: Binding<AccentTheme> {
         Binding(get: { settings.accent }, set: { settings.accent = $0 })
+    }
+
+    private var doubleTapBinding: Binding<GestureAction> {
+        Binding(get: { settings.doubleTapAction }, set: { settings.doubleTapAction = $0 })
+    }
+
+    private var longPressBinding: Binding<GestureAction> {
+        Binding(get: { settings.longPressAction }, set: { settings.longPressAction = $0 })
     }
 
     private var appVersion: String {

@@ -92,6 +92,26 @@ extension Color {
                 light: UIColor(red: 0.13, green: 0.45, blue: 0.28, alpha: 1),
                 dark: UIColor(red: 0.45, green: 0.78, blue: 0.58, alpha: 1)
             )
+        case .rose:
+            return dynamicColor(
+                light: UIColor(red: 0.72, green: 0.22, blue: 0.34, alpha: 1),
+                dark: UIColor(red: 0.94, green: 0.55, blue: 0.65, alpha: 1)
+            )
+        case .ocean:
+            return dynamicColor(
+                light: UIColor(red: 0.10, green: 0.40, blue: 0.66, alpha: 1),
+                dark: UIColor(red: 0.47, green: 0.72, blue: 0.93, alpha: 1)
+            )
+        case .slate:
+            return dynamicColor(
+                light: UIColor(red: 0.34, green: 0.38, blue: 0.44, alpha: 1),
+                dark: UIColor(red: 0.68, green: 0.73, blue: 0.80, alpha: 1)
+            )
+        case .cocoa:
+            return dynamicColor(
+                light: UIColor(red: 0.46, green: 0.32, blue: 0.24, alpha: 1),
+                dark: UIColor(red: 0.80, green: 0.64, blue: 0.52, alpha: 1)
+            )
         }
     }
 }
