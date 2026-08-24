@@ -52,15 +52,16 @@ struct RecordRowView: View {
                 }
                 if record.isTodo {
                     todoBody
-                } else {
-                    if record.photoData != nil {
-                        photoBody
-                    }
-                    if record.voiceFileName != nil {
-                        voiceBody
-                    }
-                    if !record.text.isEmpty {
-                        textBody
+                } else if !record.text.isEmpty {
+                    textBody
+                }
+                if record.photoData != nil {
+                    photoBody
+                }
+                if record.voiceFileName != nil {
+                    voiceBody
+                    if let transcript = record.transcript, !transcript.isEmpty {
+                        transcriptBody(transcript)
                     }
                 }
             }
@@ -170,10 +171,39 @@ struct RecordRowView: View {
             }
             .buttonStyle(PressableStyle(scale: 0.97))
 
-            if record.text.isEmpty {
+            if record.transcript == nil {
                 transcribeButton
             }
         }
+    }
+
+    /// 转写文本展示 + 收起
+    private func transcriptBody(_ transcript: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("转写：\(transcript)")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(Color.secondaryText)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    record.transcript = nil   // 收起（重新点击“转文字”可再次生成）
+                }
+                try? record.modelContext?.save()
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.secondaryText.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.badgeBackground)
+        )
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     /// 语音转文字（Apple Speech，优先设备端）
@@ -214,7 +244,7 @@ struct RecordRowView: View {
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        record.text = trimmed
+                        record.transcript = trimmed
                     }
                     try? record.modelContext?.save()
                 }

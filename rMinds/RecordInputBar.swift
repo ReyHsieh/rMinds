@@ -1,7 +1,9 @@
 import SwiftUI
 import PhotosUI
 
-/// 底部输入栏：文字即时入流；输入 @ 弹出日期选择（自动转待办）；选照片（进编辑器）；按住录语音。
+/// 底部输入栏（iMessage 式组合编辑器）：
+/// 文字可留空；图片/语音以暂存附件形式贴在输入栏上方；@ 设为待办（今日/明日/某天/具体日期）。
+/// 发送时合并为一条记录，直接入流，不经过编辑页。
 struct RecordInputBar: View {
     enum PendingTodo: Equatable {
         case none
@@ -9,13 +11,13 @@ struct RecordInputBar: View {
         case day(Date)
     }
 
-    var onSend: (String, Date?, Bool) -> Void
-    var onPickPhoto: (Data) -> Void
-    var onVoiceDone: (String, TimeInterval) -> Void
+    var onSend: (String, Date?, Bool, Data?, (String, TimeInterval)?) -> Void
 
     @Environment(AppSettings.self) private var settings
     @State private var draft = ""
     @State private var pendingTodo: PendingTodo = .none
+    @State private var pendingPhoto: Data?
+    @State private var pendingVoice: (fileName: String, duration: TimeInterval)?
     @State private var showAtMenu = false
     @State private var showAtCalendar = false
     @State private var atCalendarDate = Date()
@@ -107,7 +109,51 @@ struct RecordInputBar: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            if pendingTodo != .none {
+            // 暂存附件区（iMessage 式）
+            if pendingPhoto != nil || pendingVoice != nil {
+                HStack(spacing: 10) {
+                    if let data = pendingPhoto, let image = UIImage(data: data) {
+                        ZStack(alignment: .topTrailing) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 64, height: 64)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            removeButton {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    pendingPhoto = nil
+                                }
+                            }
+                        }
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
+                    }
+                    if let voice = pendingVoice {
+                        ZStack(alignment: .topTrailing) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "waveform")
+                                    .font(.system(size: 15, weight: .semibold))
+                                Text(String(format: "%d:%02d", Int(voice.duration) / 60, Int(voice.duration) % 60))
+                                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            }
+                            .foregroundStyle(Color.primaryText)
+                            .frame(width: 76, height: 64)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.chipFill))
+                            removeButton {
+                                if let file = pendingVoice?.fileName {
+                                    AudioHelper.shared.deleteVoiceFile(file)
+                                }
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    pendingVoice = nil
+                                }
+                            }
+                        }
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+
+            if let date = pendingTodoDateForChip {
                 todoChip
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -124,6 +170,8 @@ struct RecordInputBar: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showAtMenu)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showAtCalendar)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingTodo)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingPhoto)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingVoice == nil)
         .background(
             Rectangle()
                 .fill(Color.appBackground)
@@ -146,7 +194,10 @@ struct RecordInputBar: View {
                 if let data = try? await item.loadTransferable(type: Data.self),
                    let image = UIImage(data: data),
                    let jpeg = image.downscaled(maxDimension: 1600, quality: 0.78) {
-                    onPickPhoto(jpeg)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        pendingPhoto = jpeg
+                    }
+                    focused = true
                 }
                 photoItem = nil
             }
@@ -169,11 +220,26 @@ struct RecordInputBar: View {
         }
     }
 
+    private var pendingTodoDateForChip: Date? {
+        if case .day(let date) = pendingTodo { return date }
+        return nil
+    }
+
+    private func removeButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(Color.secondaryText, Color.appBackground)
+        }
+        .buttonStyle(.plain)
+        .offset(x: 6, y: -6)
+    }
+
     // MARK: 常规输入栏
 
     private var inputBar: some View {
         HStack(spacing: 8) {
-            TextField(pendingTodo == .none ? "记录此刻…（@ 设为待办）" : "添加待办…", text: $draft, axis: .vertical)
+            TextField(placeholder, text: $draft, axis: .vertical)
                 .font(.system(size: FS.s(16), weight: .medium))
                 .foregroundStyle(Color.primaryText)
                 .lineLimit(1...4)
@@ -204,8 +270,15 @@ struct RecordInputBar: View {
         }
     }
 
+    private var placeholder: String {
+        if pendingTodo != .none { return "添加待办…" }
+        if pendingPhoto != nil || pendingVoice != nil { return "说点什么…（可留空）" }
+        return "记录此刻…（@ 待办）"
+    }
+
     private var canSend: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasText = !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasText || pendingPhoto != nil || pendingVoice != nil
     }
 
     /// 待办胶囊：点按改期/改某天，×取消待办（回到普通记录）
@@ -344,7 +417,10 @@ struct RecordInputBar: View {
 
     private func finishVoice() {
         if let result = audio.stopRecording(cancel: false) {
-            onVoiceDone(result.0, result.1)
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                pendingVoice = result
+            }
+            focused = true
         }
         withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
             recording = false
@@ -352,14 +428,16 @@ struct RecordInputBar: View {
     }
 
     private func send() {
+        guard canSend else { return }
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
         let isTodo = pendingTodo != .none
         let dueDay: Date? = if case .day(let date) = pendingTodo { date } else { nil }
-        onSend(trimmed, dueDay, isTodo)
+        onSend(trimmed, dueDay, isTodo, pendingPhoto, pendingVoice)
         draft = ""
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             pendingTodo = .none
+            pendingPhoto = nil
+            pendingVoice = nil
             showAtMenu = false
             showAtCalendar = false
         }

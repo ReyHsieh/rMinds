@@ -2,15 +2,10 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
-/// 记录编辑器：新建（照片/语音草稿）或编辑既有记录。
-/// 待办可设置日期时间与提醒。
+/// 记录编辑器：编辑既有记录（新建走输入栏组合编辑器，直接入流）。
+/// 待办可设置日期时间与提醒；可增删图片与语音附件。
 struct RecordEditorView: View {
-    /// nil = 新建
-    let editing: Record?
-    /// 新建时预填的内容
-    var presetPhoto: Data? = nil
-    @State var incomingVoice: (fileName: String, duration: TimeInterval)?
-    var presetVoice: (fileName: String, duration: TimeInterval)? { incomingVoice }
+    let editing: Record
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -31,12 +26,9 @@ struct RecordEditorView: View {
     private var audio = AudioHelper.shared
 
     private var canSave: Bool {
-        if isTodo {
-            return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || photoData != nil
-            || (editing?.voiceFileName ?? presetVoice?.fileName) != nil
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if isTodo { return hasText }
+        return hasText || effectivePhoto != nil || effectiveVoice != nil
     }
 
     var body: some View {
@@ -169,18 +161,16 @@ struct RecordEditorView: View {
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 12) {
-                if editing != nil {
-                    Button {
-                        confirmDelete = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(.red)
-                            .frame(width: 48, height: 48)
-                            .background(Circle().fill(Color.cardTint))
-                    }
-                    .buttonStyle(PressableStyle(scale: 0.9))
+                Button {
+                    confirmDelete = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.red)
+                        .frame(width: 48, height: 48)
+                        .background(Circle().fill(Color.cardTint))
                 }
+                .buttonStyle(PressableStyle(scale: 0.9))
                 Spacer()
                 Button("取消") { dismiss() }
                     .font(.system(size: 16, weight: .regular))
@@ -264,7 +254,7 @@ struct RecordEditorView: View {
                 .buttonStyle(.plain)
                 Button {
                     photoData = nil
-                    if let editing { editing.photoData = nil }
+                    editing.photoData = nil
                 } label: {
                     Label("移除", systemImage: "trash")
                         .font(.system(size: 13, weight: .semibold))
@@ -285,7 +275,7 @@ struct RecordEditorView: View {
     @ViewBuilder
     private func voicePreview(_ voice: (fileName: String, duration: TimeInterval)) -> some View {
         Button {
-            audio.togglePlay(fileName: voice.fileName, recordId: editing?.id ?? UUID())
+            audio.togglePlay(fileName: voice.fileName, recordId: editing.id)
         } label: {
             Label(
                 String(format: "语音 · %d:%02d", Int(voice.duration) / 60, Int(voice.duration) % 60),
@@ -298,19 +288,12 @@ struct RecordEditorView: View {
         Spacer()
         Button {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                if let editing, let old = editing.voiceFileName, recordedVoice != nil {
+                if let old = editing.voiceFileName {
                     AudioHelper.shared.deleteVoiceFile(old)
-                    editing.voiceFileName = nil
-                }
-                if let incomingVoice {
-                    AudioHelper.shared.deleteVoiceFile(incomingVoice.fileName)
                 }
                 recordedVoice = nil
-                if let editing {
-                    editing.voiceFileName = nil
-                    editing.voiceDuration = 0
-                }
-                incomingVoice = nil
+                editing.voiceFileName = nil
+                editing.voiceDuration = 0
             }
         } label: {
             Label("移除", systemImage: "trash")
@@ -568,16 +551,13 @@ struct RecordEditorView: View {
     // MARK: 数据
 
     private var effectivePhoto: Data? {
-        photoData ?? editing?.photoData
+        photoData ?? editing.photoData
     }
 
     private var effectiveVoice: (fileName: String, duration: TimeInterval)? {
         if let recordedVoice { return recordedVoice }
-        if let editing, let file = editing.voiceFileName {
+        if let file = editing.voiceFileName {
             return (file, editing.voiceDuration)
-        }
-        if let presetVoice {
-            return (presetVoice.fileName, presetVoice.duration)
         }
         return nil
     }
@@ -587,12 +567,7 @@ struct RecordEditorView: View {
     }
 
     private func load() {
-        guard let editing, text.isEmpty else {
-            if editing == nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { textFocused = true }
-            }
-            return
-        }
+        guard text.isEmpty else { return }
         text = editing.text
         isTodo = editing.isTodo
         dueDay = editing.dueDay
@@ -611,43 +586,23 @@ struct RecordEditorView: View {
 
         let hasPhoto = effectivePhoto != nil
         let hasVoice = effectiveVoice != nil
-        if let editing {
-            if let recordedVoice {
-                if let old = editing.voiceFileName, old != recordedVoice.fileName {
-                    AudioHelper.shared.deleteVoiceFile(old)
-                }
-                editing.voiceFileName = recordedVoice.fileName
-                editing.voiceDuration = recordedVoice.duration
+        if let recordedVoice {
+            if let old = editing.voiceFileName, old != recordedVoice.fileName {
+                AudioHelper.shared.deleteVoiceFile(old)
             }
-            editing.text = trimmed
-            editing.kind = isTodo ? .todo : (hasPhoto ? .photo : (hasVoice ? .voice : .text))
-            editing.dueDay = isTodo ? dueDay : nil
-            editing.dueTime = time
-            editing.wantsReminder = wantsReminder
-            editing.isPinned = isPinned
-            editing.isHighlighted = isHighlighted
-            if let photoData { editing.photoData = photoData }
-            NotificationManager.cancelRecord(editing)
-            syncReminder(recordId: editing.id, time: time, wantsReminder: wantsReminder, isDone: editing.isDone)
-        } else {
-            let voice = recordedVoice ?? presetVoice
-            let kind: Record.Kind = isTodo ? .todo : (hasPhoto ? .photo : (hasVoice ? .voice : .text))
-            let record = Record(
-                text: trimmed,
-                kind: kind,
-                isDone: false,
-                dueDay: isTodo ? dueDay : nil,
-                dueTime: time,
-                wantsReminder: wantsReminder,
-                isPinned: isPinned,
-                isHighlighted: isHighlighted,
-                photoData: photoData ?? presetPhoto,
-                voiceFileName: voice?.fileName,
-                voiceDuration: voice?.duration ?? 0
-            )
-            context.insert(record)
-            syncReminder(recordId: record.id, time: time, wantsReminder: wantsReminder, isDone: false)
+            editing.voiceFileName = recordedVoice.fileName
+            editing.voiceDuration = recordedVoice.duration
         }
+        editing.text = trimmed
+        editing.kind = isTodo ? .todo : (hasPhoto ? .photo : (hasVoice ? .voice : .text))
+        editing.dueDay = isTodo ? dueDay : nil
+        editing.dueTime = time
+        editing.wantsReminder = wantsReminder
+        editing.isPinned = isPinned
+        editing.isHighlighted = isHighlighted
+        if let photoData { editing.photoData = photoData }
+        NotificationManager.cancelRecord(editing)
+        syncReminder(recordId: editing.id, time: time, wantsReminder: wantsReminder, isDone: editing.isDone)
         try? context.save()
         saveHaptic.notificationOccurred(.success)
         dismiss()
@@ -658,7 +613,6 @@ struct RecordEditorView: View {
     }
 
     private func deleteAndDismiss() {
-        guard let editing else { return }
         NotificationManager.cancelRecord(editing)
         withAnimation { editing.deletedAt = Date() }   // 软删除，可在设置→最近删除恢复
         try? context.save()

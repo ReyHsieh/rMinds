@@ -209,6 +209,7 @@ struct SettingsView: View {
             var line = "\(time) \(flag)\(mark)\(record.text)"
             if record.kind == .photo { line += "　[照片]" }
             if record.kind == .voice { line += String(format: "　[语音 %d:%02d]", Int(record.voiceDuration) / 60, Int(record.voiceDuration) % 60) }
+            if let transcript = record.transcript, !transcript.isEmpty { line += "\n    转写：\(transcript)" }
             lines.append(line)
         }
         exportText = lines.joined(separator: "\n")

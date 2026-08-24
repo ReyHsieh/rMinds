@@ -18,8 +18,6 @@ struct MainView: View {
 
     @State private var showEditor = false
     @State private var editingRecord: Record?
-    @State private var presetPhoto: Data?
-    @State private var presetVoice: (fileName: String, duration: TimeInterval)?
     @State private var showSettings = false
     @State private var frames: [String: CGRect] = [:]
     @State private var headerHeight: CGFloat = 0
@@ -47,20 +45,8 @@ struct MainView: View {
                 header
             }
 
-            RecordInputBar(
-                    onSend: quickAdd,
-                onPickPhoto: { data in
-                    presetPhoto = data
-                    editingRecord = nil
-                    showEditor = true
-                },
-                onVoiceDone: { fileName, duration in
-                    presetVoice = (fileName, duration)
-                    editingRecord = nil
-                    showEditor = true
-                }
-            )
-            .reportFrame("inputBar")
+            RecordInputBar(onSend: quickAdd)
+                .reportFrame("inputBar")
 
             if onboarding.isActive {
                 OnboardingOverlay(frames: frames)
@@ -68,11 +54,9 @@ struct MainView: View {
         }
         .background(Color.appBackground)
         .sheet(isPresented: $showEditor) {
-            RecordEditorView(
-                editing: editingRecord,
-                presetPhoto: presetPhoto,
-                incomingVoice: presetVoice
-            )
+            if let record = editingRecord {
+                RecordEditorView(editing: record)
+            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -92,8 +76,6 @@ struct MainView: View {
                 recordCountBeforeEditor = records.count
             } else {
                 onboarding.editorDismissed(createdTask: records.count > recordCountBeforeEditor)
-                presetPhoto = nil
-                presetVoice = nil
                 refreshNotifications()
             }
         }
@@ -180,8 +162,16 @@ struct MainView: View {
 
     // MARK: 动作
 
-    private func quickAdd(_ text: String, dueDay: Date?, isTodo: Bool) {
-        let record = Record(text: text, kind: isTodo ? .todo : .text, dueDay: dueDay)
+    private func quickAdd(_ text: String, dueDay: Date?, isTodo: Bool, photo: Data?, voice: (fileName: String, duration: TimeInterval)?) {
+        let kind: Record.Kind = isTodo ? .todo : (photo != nil ? .photo : (voice != nil ? .voice : .text))
+        let record = Record(
+            text: text,
+            kind: kind,
+            dueDay: dueDay,
+            photoData: photo,
+            voiceFileName: voice?.fileName,
+            voiceDuration: voice?.duration ?? 0
+        )
         context.insert(record)
         try? context.save()
         WidgetCenter.shared.reloadAllTimelines()

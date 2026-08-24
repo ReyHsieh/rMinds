@@ -26,6 +26,8 @@ final class Record {
     var photoData: Data? = nil
     var voiceFileName: String? = nil
     var voiceDuration: Double = 0
+    /// 语音转写文本（与手写正文独立，可收起）
+    var transcript: String? = nil
 
     init(
         id: UUID = UUID(),
@@ -41,7 +43,8 @@ final class Record {
         deletedAt: Date? = nil,
         photoData: Data? = nil,
         voiceFileName: String? = nil,
-        voiceDuration: Double = 0
+        voiceDuration: Double = 0,
+        transcript: String? = nil
     ) {
         self.id = id
         self.text = text
@@ -57,6 +60,7 @@ final class Record {
         self.photoData = photoData
         self.voiceFileName = voiceFileName
         self.voiceDuration = voiceDuration
+        self.transcript = transcript
     }
 }
 
