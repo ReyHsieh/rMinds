@@ -21,6 +21,8 @@ final class Record {
     var isHighlighted: Bool = false
     /// 软删除时间（设置 → 最近删除 可恢复/彻底删除）
     var deletedAt: Date? = nil
+    /// 引用的记录
+    var quoteID: UUID? = nil
 
     // 媒体
     var photoData: Data? = nil
@@ -41,6 +43,7 @@ final class Record {
         isPinned: Bool = false,
         isHighlighted: Bool = false,
         deletedAt: Date? = nil,
+        quoteID: UUID? = nil,
         photoData: Data? = nil,
         voiceFileName: String? = nil,
         voiceDuration: Double = 0,
@@ -57,6 +60,7 @@ final class Record {
         self.isPinned = isPinned
         self.isHighlighted = isHighlighted
         self.deletedAt = deletedAt
+        self.quoteID = quoteID
         self.photoData = photoData
         self.voiceFileName = voiceFileName
         self.voiceDuration = voiceDuration

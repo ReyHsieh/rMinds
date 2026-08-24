@@ -18,7 +18,10 @@ struct MainView: View {
     @State private var showEditor = false
     @State private var editingRecord: Record?
     @State private var showSettings = false
+    @State private var showQuotePicker = false
+    @State private var pendingQuote: Record?
     @State private var headerHeight: CGFloat = 0
+    @State private var quoteJumpID: PersistentIdentifier?
 
     private var visibleRecords: [Record] {
         records.filter { $0.deletedAt == nil }
@@ -28,7 +31,15 @@ struct MainView: View {
         RecordActions(
             onToggleDone: toggleDone,
             onEdit: openEditor,
-            onDelete: deleteRecord
+            onDelete: deleteRecord,
+            onQuoteTap: { quoted in
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    quoteJumpID = quoted.persistentModelID
+                }
+            },
+            quoteProvider: { id in
+                visibleRecords.first { $0.id == id }
+            }
         )
     }
 
@@ -42,12 +53,27 @@ struct MainView: View {
                 header
             }
 
-            RecordInputBar(onSend: quickAdd)
+            RecordInputBar(
+                onSend: quickAdd,
+                onRequestQuotePicker: {
+                    editingRecord = nil
+                    showQuotePicker = true
+                },
+                pendingQuote: $pendingQuote
+            )
         }
         .background(Color.appBackground)
         .sheet(isPresented: $showEditor) {
             if let record = editingRecord {
                 RecordEditorView(editing: record)
+            }
+        }
+        .sheet(isPresented: $showQuotePicker) {
+            QuotePickerSheet(records: visibleRecords) { record in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    pendingQuote = record
+                }
+                showQuotePicker = false
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -139,7 +165,8 @@ struct MainView: View {
         TimelineView(
             records: visibleRecords,
             actions: recordActions,
-            contentTopInset: headerHeight
+            contentTopInset: headerHeight,
+            jumpTargetID: $quoteJumpID
         )
         // 字号缩放是静态量，时间线无响应式依赖；用 id 在切换时整树重建
         .id(settings.fontSize)
@@ -147,15 +174,16 @@ struct MainView: View {
 
     // MARK: 动作
 
-    private func quickAdd(_ text: String, dueDay: Date?, isTodo: Bool, photo: Data?, voice: (fileName: String, duration: TimeInterval)?) {
-        let kind: Record.Kind = isTodo ? .todo : (photo != nil ? .photo : (voice != nil ? .voice : .text))
+    private func quickAdd(_ draft: OutgoingDraft) {
+        let kind: Record.Kind = draft.isTodo ? .todo : (draft.photo != nil ? .photo : (draft.voice != nil ? .voice : .text))
         let record = Record(
-            text: text,
+            text: draft.text,
             kind: kind,
-            dueDay: dueDay,
-            photoData: photo,
-            voiceFileName: voice?.fileName,
-            voiceDuration: voice?.duration ?? 0
+            dueDay: draft.dueDay,
+            quoteID: draft.quoteID,
+            photoData: draft.photo,
+            voiceFileName: draft.voice?.fileName,
+            voiceDuration: draft.voice?.duration ?? 0
         )
         context.insert(record)
         try? context.save()
@@ -190,5 +218,69 @@ struct MainView: View {
     private func refreshNotifications() {
         NotificationManager.refreshRecords(visibleRecords, enabled: settings.remindersEnabled)
         WidgetCenter.shared.reloadAllTimelines()
+    }
+}
+
+
+/// 引用选择器：从最近的记录里挑一条引用
+struct QuotePickerSheet: View {
+    let records: [Record]
+    var onSelect: (Record) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List(records.prefix(50)) { record in
+                Button {
+                    onSelect(record)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: QuotePickerSheet.kindIcon(record))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.secondaryText)
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(record.text.isEmpty ? QuotePickerSheet.kindLabel(record) : record.text)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(Color.primaryText)
+                                .lineLimit(1)
+                            Text(DayPlanner.localizedDate(record.createdAt) + " " + DayPlanner.hm(record.createdAt))
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.secondaryText)
+                        }
+                        Spacer()
+                        Image(systemName: "quote.opening")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.secondaryText.opacity(0.6))
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .listStyle(.plain)
+            .navigationTitle("选择引用")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { }
+                }
+            }
+        }
+    }
+
+    static func kindIcon(_ record: Record) -> String {
+        switch record.kind {
+        case .text: return "text.quote"
+        case .todo: return record.isDone ? "checkmark.circle.fill" : "circle"
+        case .photo: return "photo"
+        case .voice: return "waveform"
+        }
+    }
+
+    static func kindLabel(_ record: Record) -> String {
+        switch record.kind {
+        case .text: return "文字记录"
+        case .todo: return "待办"
+        case .photo: return "照片"
+        case .voice: return "语音"
+        }
     }
 }

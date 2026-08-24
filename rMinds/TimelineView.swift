@@ -6,6 +6,8 @@ struct TimelineView: View {
     let records: [Record]
     let actions: RecordActions
     var contentTopInset: CGFloat
+    /// 引用跳转目标（点击引用块后滚动定位）
+    @Binding var jumpTargetID: PersistentIdentifier?
 
     private struct DaySection: Identifiable {
         let day: Date
@@ -41,6 +43,7 @@ struct TimelineView: View {
                             .padding(.leading, 2)
                         ForEach(pinnedRecords) { record in
                             RecordRowView(record: record, actions: actions)
+                                .id(record.persistentModelID)
                         }
                     }
                     .padding(12)
@@ -89,6 +92,13 @@ struct TimelineView: View {
         .onAppear {
             lastFirstRecordID = records.first?.persistentModelID
         }
+        .onChange(of: jumpTargetID) { _, target in
+            guard let target else { return }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                proxy.scrollTo(target, anchor: .top)
+            }
+            jumpTargetID = nil
+        }
         }
     }
 
@@ -101,6 +111,7 @@ struct TimelineView: View {
                 .padding(.leading, 2)
             ForEach(section.records) { record in
                 RecordRowView(record: record, actions: actions)
+                    .id(record.persistentModelID)
             }
         }
         .clipped()

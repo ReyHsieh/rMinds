@@ -68,6 +68,9 @@ struct RecordRowView: View {
                 .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 7) {
+                if let quoted = quotedRecord {
+                    quotePreview(quoted)
+                }
                 if record.isPinned {
                     Label("已置顶", systemImage: "pin.fill")
                         .font(.system(size: 10, weight: .semibold))
@@ -166,6 +169,10 @@ struct RecordRowView: View {
                     .onTapGesture {
                         if !suppressTap, abs(offset) < 2 { showPhoto = true }
                     }
+                    // 子视图手势会屏蔽行级手势：在此转发长按
+                    .onLongPressGesture(minimumDuration: 0.45) {
+                        runGestureAction(settings.longPressAction)
+                    }
             }
         }
     }
@@ -204,6 +211,9 @@ struct RecordRowView: View {
                 guard let file = record.voiceFileName else { return }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 audio.togglePlay(fileName: file, recordId: record.id)
+            }
+            .onLongPressGesture(minimumDuration: 0.45) {
+                runGestureAction(settings.longPressAction)
             }
 
             if record.transcript == nil {
@@ -282,6 +292,52 @@ struct RecordRowView: View {
                     try? record.modelContext?.save()
                 }
             }
+        }
+    }
+
+    private var quotedRecord: Record? {
+        guard let quoteID = record.quoteID else { return nil }
+        let quoted = actions.quoteProvider(quoteID)
+        guard let quoted, quoted.deletedAt == nil else { return nil }
+        return quoted
+    }
+
+    private func quotePreview(_ quoted: Record) -> some View {
+        HStack(spacing: 8) {
+            Capsule()
+                .fill(Color.secondaryText.opacity(0.4))
+                .frame(width: 2.5)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(quoteKindLabel(quoted))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.secondaryText)
+                Text(quoted.text.isEmpty ? "—" : quoted.text)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color.secondaryText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.badgeBackground)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            actions.onQuoteTap(quoted)
+        }
+    }
+
+    private func quoteKindLabel(_ quoted: Record) -> String {
+        let time = DayPlanner.hm(quoted.createdAt)
+        switch quoted.kind {
+        case .text: return "引用 · \(time)"
+        case .todo: return "引用待办 · \(time)"
+        case .photo: return "引用图片 · \(time)"
+        case .voice: return "引用语音 · \(time)"
         }
     }
 
@@ -502,6 +558,10 @@ struct RecordActions {
     let onToggleDone: (Record) -> Void
     let onEdit: (Record) -> Void
     let onDelete: (Record) -> Void
+    /// 点击引用块：跳转滚动到被引用记录
+    var onQuoteTap: (Record) -> Void = { _ in }
+    /// 依据 ID 解析被引用记录
+    var quoteProvider: (UUID) -> Record? = { _ in nil }
 }
 
 /// 全屏看图：下滑关闭

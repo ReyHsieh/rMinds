@@ -155,6 +155,8 @@ struct RecordEditorView: View {
             }
 
                 flagCard
+
+            quoteCard
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -559,6 +561,88 @@ struct RecordEditorView: View {
             .background(Capsule().fill(Color.chipFill))
     }
 
+    // MARK: 引用
+
+    @State private var showQuotePicker = false
+    @State private var selectedQuoteID: UUID?
+
+    private var quoteCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "quote.opening").font(.system(size: 12, weight: .semibold))
+                Text("引用").font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Color.secondaryText)
+
+            if let quoted = resolvedQuote {
+                HStack(spacing: 8) {
+                    Capsule().fill(Color.secondaryText.opacity(0.4)).frame(width: 2.5)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(QuotePickerSheet.kindLabel(quoted))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.secondaryText)
+                        Text(quoted.text.isEmpty ? "—" : quoted.text)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.secondaryText)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.badgeBackground))
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    showQuotePicker = true
+                } label: {
+                    Label(resolvedQuote == nil ? "添加引用" : "更换引用", systemImage: "quote.opening")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.primaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.chipFill))
+                }
+                .buttonStyle(PressableStyle(scale: 0.93))
+
+                if resolvedQuote != nil {
+                    Button {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            selectedQuoteID = nil
+                        }
+                    } label: {
+                        Label("移除", systemImage: "trash")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.cardTint)
+        )
+        .sheet(isPresented: $showQuotePicker) {
+            QuotePickerSheet(records: allRecords) { picked in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    selectedQuoteID = picked.id
+                }
+                showQuotePicker = false
+            }
+        }
+    }
+
+    @Query private var allRecords: [Record]
+
+    private var resolvedQuote: Record? {
+        guard let id = selectedQuoteID ?? editing.quoteID else { return nil }
+        return allRecords.first { $0.id == id && $0.deletedAt == nil }
+    }
+
     // MARK: 数据
 
     private var effectivePhoto: Data? {
@@ -611,6 +695,7 @@ struct RecordEditorView: View {
         editing.wantsReminder = wantsReminder
         editing.isPinned = isPinned
         editing.isHighlighted = isHighlighted
+        editing.quoteID = selectedQuoteID
         if let photoData { editing.photoData = photoData }
         NotificationManager.cancelRecord(editing)
         syncReminder(recordId: editing.id, time: time, wantsReminder: wantsReminder, isDone: editing.isDone)

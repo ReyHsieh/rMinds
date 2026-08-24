@@ -4,6 +4,16 @@ import PhotosUI
 /// 底部输入栏（iMessage 式组合编辑器）：
 /// 文字可留空；图片/语音以暂存附件形式贴在输入栏上方；@ 设为待办（今日/明日/某天/具体日期）。
 /// 发送时合并为一条记录，直接入流，不经过编辑页。
+/// 输入栏一次发送的完整内容
+struct OutgoingDraft {
+    var text: String
+    var dueDay: Date?
+    var isTodo: Bool
+    var photo: Data?
+    var voice: (fileName: String, duration: TimeInterval)?
+    var quoteID: UUID?
+}
+
 struct RecordInputBar: View {
     enum PendingTodo: Equatable {
         case none
@@ -11,7 +21,9 @@ struct RecordInputBar: View {
         case day(Date)
     }
 
-    var onSend: (String, Date?, Bool, Data?, (String, TimeInterval)?) -> Void
+    var onSend: (OutgoingDraft) -> Void
+    var onRequestQuotePicker: () -> Void
+    @Binding var pendingQuote: Record?
 
     @Environment(AppSettings.self) private var settings
     @State private var draft = ""
@@ -109,6 +121,40 @@ struct RecordInputBar: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            // 引用条
+            if let quote = pendingQuote, quote.deletedAt == nil {
+                HStack(spacing: 8) {
+                    Capsule().fill(Color.secondaryText.opacity(0.4)).frame(width: 2.5)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("引用")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.secondaryText)
+                        Text(quote.text.isEmpty ? "—" : quote.text)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.secondaryText)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            pendingQuote = nil
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.secondaryText)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.badgeBackground)
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
             // 暂存附件区（iMessage 式）
             if pendingPhoto != nil || pendingVoice != nil {
                 HStack(spacing: 10) {
@@ -172,6 +218,7 @@ struct RecordInputBar: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingTodo)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingPhoto)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingVoice == nil)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pendingQuote?.id)
         .background(
             Rectangle()
                 .fill(Color.appBackground)
@@ -240,6 +287,15 @@ struct RecordInputBar: View {
                     .foregroundStyle(Color.secondaryText)
                     .frame(width: 38, height: 38)
                     .background(Circle().fill(Color.chipFill))
+            }
+            .buttonStyle(PressableStyle(scale: 0.9))
+
+            Button(action: onRequestQuotePicker) {
+                Image(systemName: "quote.opening")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(pendingQuote == nil ? Color.secondaryText : Color.onPrimary)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(pendingQuote == nil ? Color.chipFill : Color.accent(for: settings.accent)))
             }
             .buttonStyle(PressableStyle(scale: 0.9))
 
@@ -436,12 +492,21 @@ struct RecordInputBar: View {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         let isTodo = pendingTodo != .none
         let dueDay: Date? = if case .day(let date) = pendingTodo { date } else { nil }
-        onSend(trimmed, dueDay, isTodo, pendingPhoto, pendingVoice)
-        draft = ""
+        let draft = OutgoingDraft(
+            text: trimmed,
+            dueDay: dueDay,
+            isTodo: isTodo,
+            photo: pendingPhoto,
+            voice: pendingVoice,
+            quoteID: (pendingQuote?.deletedAt == nil ? pendingQuote?.id : nil)
+        )
+        onSend(draft)
+        self.draft = ""
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             pendingTodo = .none
             pendingPhoto = nil
             pendingVoice = nil
+            pendingQuote = nil
             showAtMenu = false
             showAtCalendar = false
         }
