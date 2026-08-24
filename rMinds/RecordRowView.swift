@@ -15,9 +15,15 @@ enum RecordImageCache {
 
 /// 时间线上的一条记录：左侧时间列 + 右侧内容。
 /// 待办可勾选（右滑）、所有类型左滑删除、点按进入编辑。
+enum RowContext {
+    case active
+    case archive
+}
+
 struct RecordRowView: View {
     let record: Record
     var actions: RecordActions
+    var context: RowContext = .active
     var frameKey: String? = nil
 
     @Environment(AppSettings.self) private var settings
@@ -26,6 +32,9 @@ struct RecordRowView: View {
     @State private var isDragging = false
     @State private var suppressTap = false
     @State private var horizontalLock = false
+    @State private var panStart: CGPoint?
+    @State private var panLast: CGPoint?
+    @State private var panLastTime: Date?
     @State private var showPhoto = false
 
     private var audio = AudioHelper.shared
@@ -43,7 +52,7 @@ struct RecordRowView: View {
             actionsLayer
             content
                 .offset(x: offset)
-                .simultaneousGesture(dragGesture)
+                .gesture(panGesture)
         }
         .padding(.vertical, 5)
     }
@@ -362,17 +371,24 @@ struct RecordRowView: View {
         min(1, max(0, -offset / trailingWidth))
     }
 
-    // MARK: 手势
-
-    private var dragGesture: some Gesture {
-        // 阈值过小会在竖向先激活并吃掉触摸，导致列表无法滚动；14pt 是安全下限
-        DragGesture(minimumDistance: 14)
-            .onChanged { value in
-                let width = value.translation.width
-                let height = value.translation.height
+    private var panGesture: PanGesture {
+        PanGesture(
+            onBegan: { location in
+                panStart = location
+                panLast = location
+                panLastTime = Date()
+                horizontalLock = false
+            },
+            onChanged: { location in
+                guard let start = panStart else { return }
+                let width = location.x - start.x
+                let height = location.y - start.y
+                if abs(width) > 8 || abs(height) > 8 {
+                    suppressTap = true
+                }
                 // 方向锁定：明确横向才接管；竖向交给滚动
                 if !horizontalLock {
-                    if abs(width) > 14 && abs(width) > abs(height) * 1.3 {
+                    if abs(width) > 14 && abs(width) > abs(height) * 1.2 {
                         horizontalLock = true
                         isDragging = true
                         dragStartOffset = offset
@@ -384,34 +400,40 @@ struct RecordRowView: View {
                     max(dragStartOffset + width, -trailingWidth),
                     leadingWidth
                 )
-            }
-            .onEnded { value in
-                guard horizontalLock else { return }
+            },
+            onEnded: { location, velocity in
+                guard horizontalLock, let start = panStart else {
+                    panStart = nil
+                    panLast = nil
+                    return
+                }
                 horizontalLock = false
                 isDragging = false
-                let translation = value.translation.width
-                let predicted = value.predictedEndTranslation.width
-                if abs(translation) > 10 {
-                    suppressTap = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        suppressTap = false
-                    }
+                let translation = location.x - start.x
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    suppressTap = false
                 }
-                if dragStartOffset == 0 {
-                    if record.isTodo,
-                       translation > fullSwipeDistance || predicted > fullSwipeDistance * 1.6 {
-                        runLeading()
-                        return
-                    }
-                    if translation < -fullSwipeDistance || predicted < -fullSwipeDistance * 1.6 {
-                        haptic.impactOccurred()
-                        actions.onDelete(record)
-                        return
-                    }
+                // 全划：速度或位移任一达标直接触发
+                if record.isTodo, velocity > 700 || translation > 150 {
+                    runLeading()
+                    panStart = nil
+                    return
+                }
+                if velocity < -700 || translation < -150 {
+                    // 左滑全划：直接删除（软删除，可在最近删除恢复）
+                    haptic.impactOccurred()
+                    actions.onDelete(record)
+                    panStart = nil
+                    return
                 }
                 settle()
+                panStart = nil
             }
+        )
     }
+
+    // MARK: 手势
 
     private func settle() {
         let target: CGFloat

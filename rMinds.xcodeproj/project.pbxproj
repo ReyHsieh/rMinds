@@ -29,8 +29,10 @@
     A2000000000000000000004B = {isa = PBXBuildFile; fileRef = A2000000000000000000004A; };
     A2000000000000000000004C = {isa = PBXBuildFile; fileRef = A20000000000000000000040; };
     A20000000000000000000051 = {isa = PBXBuildFile; fileRef = A20000000000000000000050; };
+    A20000000000000000000053 = {isa = PBXBuildFile; fileRef = A20000000000000000000052; };
     A2000000000000000000004E = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
     A20000000000000000000050 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechTranscriber.swift; sourceTree = "<group>"; };
+    A20000000000000000000052 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanGesture.swift; sourceTree = "<group>"; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -90,6 +92,7 @@
         A20000000000000000000023,
         A2000000000000000000004E,
         A20000000000000000000050,
+        A20000000000000000000052,
       );
       path = rMinds;
       sourceTree = "<group>";
@@ -191,6 +194,7 @@
         A20000000000000000000049,
         A2000000000000000000004B,
         A20000000000000000000051,
+        A20000000000000000000053,
       );
       runOnlyForDeploymentPostprocessing = 0;
     };
