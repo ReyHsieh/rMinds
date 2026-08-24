@@ -157,7 +157,7 @@ struct SettingsView: View {
 
     struct ExportPayload: Identifiable {
         let text: String
-        var id: String { UUID().uuidString }
+        var id: String { "export" }
     }
 
     // MARK: 动作

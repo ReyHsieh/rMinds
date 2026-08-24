@@ -12,6 +12,8 @@ final class AudioHelper: NSObject, AVAudioRecorderDelegate {
 
     /// 正在录制的文件名与已录时长
     private(set) var isRecording = false
+    /// 麦克风权限被拒（用于 UI 自动收起录音条）
+    private(set) var micPermissionDenied = false
     private(set) var currentFileName: String?
     private(set) var elapsed: TimeInterval = 0
 
@@ -40,14 +42,17 @@ final class AudioHelper: NSObject, AVAudioRecorderDelegate {
         try? session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
         try? session.setActive(true)
         if session.recordPermission == .denied {
+            micPermissionDenied = true
             return
         }
         session.requestRecordPermission { [weak self] granted in
             guard let self else { return }
             DispatchQueue.main.async {
                 if granted {
+                    self.micPermissionDenied = false
                     self.beginRecording()
                 } else {
+                    self.micPermissionDenied = true
                     self.isRecording = false
                 }
             }
@@ -63,6 +68,7 @@ final class AudioHelper: NSObject, AVAudioRecorderDelegate {
             AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
         ]
         do {
+            micPermissionDenied = false
             let rec = try AVAudioRecorder(url: url(for: fileName), settings: settings)
             rec.delegate = self
             rec.record()

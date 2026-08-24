@@ -198,6 +198,13 @@ struct RecordInputBar: View {
                 return
             }
             elapsed = audio.elapsed
+            // 权限被拒时自动收起录音条（权限弹窗期间会等待结果）
+            if audio.micPermissionDenied {
+                timer.invalidate()
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    recording = false
+                }
+            }
         }
     }
 

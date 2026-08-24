@@ -170,6 +170,8 @@ struct MainView: View {
             actions: recordActions,
             contentTopInset: headerHeight
         )
+        // 字号缩放是静态量，时间线无响应式依赖；用 id 在切换时整树重建
+        .id(settings.fontSize)
     }
 
     // MARK: 动作
