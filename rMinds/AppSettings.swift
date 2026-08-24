@@ -74,27 +74,6 @@ enum AccentTheme: String, CaseIterable, Identifiable {
     }
 }
 
-/// 可绑定到手势的动作
-enum GestureAction: String, CaseIterable, Identifiable {
-    case none
-    case toggleHighlight
-    case toggleDone
-    case togglePin
-    case edit
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .none: return "无"
-        case .toggleHighlight: return "切换高光"
-        case .toggleDone: return "标记完成（待办）"
-        case .togglePin: return "切换置顶"
-        case .edit: return "打开编辑"
-        }
-    }
-}
-
 /// 全局设置，UserDefaults 持久化。
 @Observable
 final class AppSettings {
@@ -122,13 +101,6 @@ final class AppSettings {
     var accent: AccentTheme {
         didSet { defaults.set(accent.rawValue, forKey: Keys.accent) }
     }
-    /// 手势自定义：双击条目 / 长按条目 触发的动作
-    var doubleTapAction: GestureAction {
-        didSet { defaults.set(doubleTapAction.rawValue, forKey: Keys.doubleTap) }
-    }
-    var longPressAction: GestureAction {
-        didSet { defaults.set(longPressAction.rawValue, forKey: Keys.longPress) }
-    }
 
     private let defaults: UserDefaults
 
@@ -139,8 +111,6 @@ final class AppSettings {
         static let appearance = "settings.appearance"
         static let fontSize = "settings.fontSize"
         static let accent = "settings.accent"
-        static let doubleTap = "settings.gesture.doubleTap"
-        static let longPress = "settings.gesture.longPress"
     }
 
     private init() {
@@ -152,8 +122,6 @@ final class AppSettings {
         appearance = AppearanceMode(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
         fontSize = FontSizeMode(rawValue: defaults.string(forKey: Keys.fontSize) ?? "") ?? .standard
         accent = AccentTheme(rawValue: defaults.string(forKey: Keys.accent) ?? "") ?? .ink
-        doubleTapAction = GestureAction(rawValue: defaults.string(forKey: Keys.doubleTap) ?? "") ?? .toggleHighlight
-        longPressAction = GestureAction(rawValue: defaults.string(forKey: Keys.longPress) ?? "") ?? .none
         FS.scale = fontSize.scale
     }
 }

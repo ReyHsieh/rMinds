@@ -32,6 +32,12 @@ struct MainView: View {
             onToggleDone: toggleDone,
             onEdit: openEditor,
             onDelete: deleteRecord,
+            onTogglePin: togglePin,
+            onQuote: { record in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    pendingQuote = record
+                }
+            },
             onQuoteTap: { quoted in
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                     quoteJumpID = quoted.persistentModelID
@@ -193,6 +199,14 @@ struct MainView: View {
     private func openEditor(_ record: Record) {
         editingRecord = record
         showEditor = true
+    }
+
+    private func togglePin(_ record: Record) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            record.isPinned.toggle()
+        }
+        try? context.save()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func toggleDone(_ record: Record) {

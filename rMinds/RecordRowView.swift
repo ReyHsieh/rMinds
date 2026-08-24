@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// 图片解码缓存：避免滑动过程中每帧重建/重解码 UIImage
 enum RecordImageCache {
@@ -13,13 +14,13 @@ enum RecordImageCache {
     }
 }
 
-/// 时间线上的一条记录：左侧时间列 + 右侧内容。
-/// 待办可勾选（右滑）、所有类型左滑删除、点按进入编辑。
 enum RowContext {
     case active
     case archive
 }
 
+/// 时间线上的一条记录。
+/// 手势矩阵：单击=编辑；长按=引用；右滑(leading)=置顶+删除；左滑(trailing)=待办完成。
 struct RecordRowView: View {
     let record: Record
     var actions: RecordActions
@@ -33,19 +34,19 @@ struct RecordRowView: View {
     @State private var suppressTap = false
     @State private var horizontalLock = false
     @State private var panStart: CGPoint?
-    @State private var panLast: CGPoint?
-    @State private var panLastTime: Date?
     @State private var showPhoto = false
 
     private var audio = AudioHelper.shared
 
     private let actionSize: CGFloat = 44
+    private let actionGap: CGFloat = 10
     private let openThreshold: CGFloat = 48
-    private let fullSwipeDistance: CGFloat = 150
     private let haptic = UIImpactFeedbackGenerator(style: .light)
 
-    private var leadingWidth: CGFloat { record.isTodo ? actionSize : 0 }
-    private var trailingWidth: CGFloat { actionSize }
+    /// 右滑（leading）：置顶 + 删除
+    private var leadingWidth: CGFloat { actionSize * 2 + actionGap }
+    /// 左滑（trailing）：待办完成（非待办为 0，不可划）
+    private var trailingWidth: CGFloat { record.isTodo ? actionSize : 0 }
 
     var body: some View {
         ZStack {
@@ -53,6 +54,12 @@ struct RecordRowView: View {
             content
                 .offset(x: offset)
                 .gesture(panGesture)
+                .gesture(
+                    LongPressRepresentable {
+                        haptic.impactOccurred()
+                        actions.onQuote(record)
+                    }
+                )
         }
         .padding(.vertical, 5)
     }
@@ -92,25 +99,10 @@ struct RecordRowView: View {
                 }
             }
             .padding(.top, startsWithVoice ? -3 : 0)
-            .padding(.leading, record.isHighlighted ? 8 : 0)
-            .overlay(alignment: .leading) {
-                if record.isHighlighted {
-                    Capsule()
-                        .fill(Color.accent(for: settings.accent))
-                        .frame(width: 3)
-                }
-            }
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            runGestureAction(settings.doubleTapAction)
-        }
         .onTapGesture { handleTap() }
-        .onLongPressGesture(minimumDuration: 0.45) {
-            runGestureAction(settings.longPressAction)
-        }
-        .sensoryFeedback(.impact(weight: .light), trigger: offset != 0)
         .fullScreenCover(isPresented: $showPhoto) {
             PhotoViewer(photoData: record.photoData)
         }
@@ -169,10 +161,6 @@ struct RecordRowView: View {
                     .onTapGesture {
                         if !suppressTap, abs(offset) < 2 { showPhoto = true }
                     }
-                    // 子视图手势会屏蔽行级手势：在此转发长按
-                    .onLongPressGesture(minimumDuration: 0.45) {
-                        runGestureAction(settings.longPressAction)
-                    }
             }
         }
     }
@@ -184,7 +172,6 @@ struct RecordRowView: View {
 
     private var voiceBody: some View {
         HStack(spacing: 8) {
-            // 播放胶囊（tap 手势而非 Button，避免与滑动拖拽手势抢判据）
             HStack(spacing: 9) {
                 Image(systemName: audio.isPlaying && audio.playingId == record.id ? "pause.circle.fill" : "play.circle.fill")
                     .font(.system(size: 24))
@@ -212,43 +199,11 @@ struct RecordRowView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 audio.togglePlay(fileName: file, recordId: record.id)
             }
-            .onLongPressGesture(minimumDuration: 0.45) {
-                runGestureAction(settings.longPressAction)
-            }
 
             if record.transcript == nil {
                 transcribeButton
             }
         }
-    }
-
-    /// 转写文本展示 + 收起
-    private func transcriptBody(_ transcript: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("转写：\(transcript)")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(Color.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    record.transcript = nil   // 收起（重新点击“转文字”可再次生成）
-                }
-                try? record.modelContext?.save()
-            } label: {
-                Image(systemName: "xmark.circle")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.secondaryText.opacity(0.7))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.badgeBackground)
-        )
-        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     /// 语音转文字（Apple Speech，优先设备端）
@@ -294,6 +249,69 @@ struct RecordRowView: View {
             }
         }
     }
+
+    /// 转写文本展示 + 收起
+    private func transcriptBody(_ transcript: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("转写：\(transcript)")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(Color.secondaryText)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    record.transcript = nil
+                }
+                try? record.modelContext?.save()
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.secondaryText.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.badgeBackground)
+        )
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private var checkbox: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(record.isDone ? Color.accent(for: settings.accent) : Color.chipFill)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(record.isDone ? Color.clear : Color.checkboxBorder, lineWidth: 1.5)
+            if record.isDone {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.onPrimary)
+                    .transition(.scale(scale: 0.3).combined(with: .opacity))
+            }
+        }
+        .frame(width: 22, height: 22)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: record.isDone)
+    }
+
+    private var dueBadge: String? {
+        guard let day = record.dueDay else { return nil }
+        switch DayPlanner.naturalDayIndex(of: day) {
+        case 0: return hasTime ? "今天 · \(timeText)" : "今天"
+        case 1: return hasTime ? "明天 · \(timeText)" : "明天"
+        default:
+            var label = DayPlanner.localizedDate(day)
+            if hasTime { label += " · \(timeText)" }
+            return label
+        }
+    }
+
+    private var hasTime: Bool { record.dueTime != nil }
+    private var timeText: String { record.dueTime.map { DayPlanner.hm($0) } ?? "" }
+
+    // MARK: 引用
 
     private var quotedRecord: Record? {
         guard let quoteID = record.quoteID else { return nil }
@@ -345,54 +363,25 @@ struct RecordRowView: View {
         !record.isTodo && record.text.isEmpty && record.photoData == nil && record.voiceFileName != nil
     }
 
-    private var checkbox: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(record.isDone ? Color.accent(for: settings.accent) : Color.chipFill)
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(record.isDone ? Color.clear : Color.checkboxBorder, lineWidth: 1.5)
-            if record.isDone {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Color.onPrimary)
-                    .transition(.scale(scale: 0.3).combined(with: .opacity))
-            }
-        }
-        .frame(width: 22, height: 22)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: record.isDone)
-    }
-
-    private var dueBadge: String? {
-        guard let day = record.dueDay else { return nil }
-        let index = DayPlanner.naturalDayIndex(of: day)
-        var label = DayPlanner.dayLabel(for: index, day: day)
-            .replacingOccurrences(of: " · ", with: " ")
-            .capitalized
-        if let time = record.dueTime {
-            label += " · \(DayPlanner.hm(time))"
-        }
-        return label
-    }
-
-    // MARK: 滑动操作层
+    // MARK: 滑动操作层：右滑=置顶+删除；左滑=完成（待办）
 
     private var actionsLayer: some View {
-        HStack(spacing: 0) {
-            if record.isTodo {
-                Button {
-                    runLeading()
-                } label: {
-                    actionIcon(
-                        systemName: record.isDone ? "arrow.uturn.backward" : "checkmark",
-                        background: Color.primaryText,
-                        foreground: Color.onPrimary
-                    )
-                }
-                .buttonStyle(.plain)
-                .opacity(leadingProgress)
-                .scaleEffect(0.7 + 0.3 * leadingProgress)
+        HStack(spacing: actionGap) {
+            Button {
+                close()
+                haptic.impactOccurred()
+                actions.onTogglePin(record)
+            } label: {
+                actionIcon(
+                    systemName: record.isPinned ? "pin.slash" : "pin",
+                    background: Color.chipFill,
+                    foreground: Color.primaryText
+                )
             }
-            Spacer(minLength: 0)
+            .buttonStyle(.plain)
+            .opacity(leadingProgress)
+            .scaleEffect(0.7 + 0.3 * leadingProgress)
+
             Button {
                 close()
                 haptic.impactOccurred()
@@ -405,10 +394,29 @@ struct RecordRowView: View {
                 )
             }
             .buttonStyle(.plain)
-            .opacity(trailingProgress)
-            .scaleEffect(0.7 + 0.3 * trailingProgress)
+            .opacity(leadingProgress)
+            .scaleEffect(0.7 + 0.3 * leadingProgress)
+
+            Spacer(minLength: 0)
+
+            if record.isTodo {
+                Button {
+                    close()
+                    haptic.impactOccurred()
+                    actions.onToggleDone(record)
+                } label: {
+                    actionIcon(
+                        systemName: record.isDone ? "arrow.uturn.backward" : "checkmark",
+                        background: Color.accent(for: settings.accent),
+                        foreground: Color.onPrimary
+                    )
+                }
+                .buttonStyle(.plain)
+                .opacity(trailingProgress)
+                .scaleEffect(0.7 + 0.3 * trailingProgress)
+            }
         }
-        .animation(isDragging ? nil : .spring(response: 0.3, dampingFraction: 0.75), value: offset)
+        .padding(.horizontal, 2)
     }
 
     private func actionIcon(systemName: String, background: Color, foreground: Color) -> some View {
@@ -424,15 +432,15 @@ struct RecordRowView: View {
     }
 
     private var trailingProgress: CGFloat {
-        min(1, max(0, -offset / trailingWidth))
+        min(1, max(0, -offset / max(1, trailingWidth)))
     }
+
+    // MARK: 平移手势（原生，方向锁定）
 
     private var panGesture: PanGesture {
         PanGesture(
             onBegan: { location in
                 panStart = location
-                panLast = location
-                panLastTime = Date()
                 horizontalLock = false
             },
             onChanged: { location in
@@ -442,7 +450,6 @@ struct RecordRowView: View {
                 if abs(width) > 8 || abs(height) > 8 {
                     suppressTap = true
                 }
-                // 方向锁定：明确横向才接管；竖向交给滚动
                 if !horizontalLock {
                     if abs(width) > 14 && abs(width) > abs(height) * 1.2 {
                         horizontalLock = true
@@ -460,7 +467,9 @@ struct RecordRowView: View {
             onEnded: { location, velocity in
                 guard horizontalLock, let start = panStart else {
                     panStart = nil
-                    panLast = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        suppressTap = false
+                    }
                     return
                 }
                 horizontalLock = false
@@ -470,17 +479,19 @@ struct RecordRowView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     suppressTap = false
                 }
-                // 全划：速度或位移任一达标直接触发
-                if record.isTodo, velocity > 700 || translation > 150 {
-                    runLeading()
+                // 全划：右滑方向 → 置顶；左滑方向（待办）→ 标记完成
+                if velocity > 700 || translation > 150 {
+                    haptic.impactOccurred()
+                    actions.onTogglePin(record)
                     panStart = nil
+                    withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { offset = 0 }
                     return
                 }
-                if velocity < -700 || translation < -150 {
-                    // 左滑全划：直接删除（软删除，可在最近删除恢复）
+                if record.isTodo, velocity < -700 || translation < -150 {
                     haptic.impactOccurred()
-                    actions.onDelete(record)
+                    actions.onToggleDone(record)
                     panStart = nil
+                    withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { offset = 0 }
                     return
                 }
                 settle()
@@ -489,13 +500,12 @@ struct RecordRowView: View {
         )
     }
 
-    // MARK: 手势
-
+    /// 松手后的吸附：关闭干脆，展开轻微回弹
     private func settle() {
         let target: CGFloat
-        if record.isTodo, offset > openThreshold {
+        if offset > openThreshold {
             target = leadingWidth
-        } else if offset < -openThreshold {
+        } else if record.isTodo, offset < -openThreshold {
             target = -trailingWidth
         } else {
             target = 0
@@ -517,39 +527,8 @@ struct RecordRowView: View {
         }
     }
 
-    private func runLeading() {
-        withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { offset = 0 }
-        haptic.impactOccurred()
-        actions.onToggleDone(record)
-    }
-
     private func close() {
         withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) { offset = 0 }
-    }
-
-    /// 可配置手势动作（设置 → 手势）
-    private func runGestureAction(_ action: GestureAction) {
-        guard action != .none, !suppressTap else { return }
-        haptic.impactOccurred()
-        switch action {
-        case .toggleHighlight:
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                record.isHighlighted.toggle()
-            }
-        case .toggleDone:
-            guard record.isTodo else { return }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                record.isDone.toggle()
-            }
-        case .togglePin:
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                record.isPinned.toggle()
-            }
-        case .edit:
-            actions.onEdit(record)
-        case .none:
-            break
-        }
     }
 }
 
@@ -558,6 +537,10 @@ struct RecordActions {
     let onToggleDone: (Record) -> Void
     let onEdit: (Record) -> Void
     let onDelete: (Record) -> Void
+    /// 切换置顶
+    var onTogglePin: (Record) -> Void = { _ in }
+    /// 长按 → 设为输入栏引用
+    var onQuote: (Record) -> Void = { _ in }
     /// 点击引用块：跳转滚动到被引用记录
     var onQuoteTap: (Record) -> Void = { _ in }
     /// 依据 ID 解析被引用记录
@@ -579,7 +562,7 @@ struct PhotoViewer: View {
             Color.black
                 .opacity(1 - Double(dismissProgress) * 0.7)
                 .ignoresSafeArea()
-            if let data = photoData, let image = UIImage(data: data) {
+            if let data = photoData, let image = RecordImageCache.image(for: data, key: "viewer") {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
@@ -607,7 +590,6 @@ struct PhotoViewer: View {
         .simultaneousGesture(
             DragGesture()
                 .onChanged { value in
-                    // 横向位移小、纵向拖动才视为关闭手势
                     if abs(value.translation.width) < abs(value.translation.height) {
                         dragOffset = value.translation
                     }

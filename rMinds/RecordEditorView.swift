@@ -17,7 +17,6 @@ struct RecordEditorView: View {
     @State private var dueTime: Date? = nil
     @State private var reminder = true
     @State private var isPinned = false
-    @State private var isHighlighted = false
     @State private var photoData: Data?
     @State private var confirmDelete = false
     @FocusState private var textFocused: Bool
@@ -453,17 +452,11 @@ struct RecordEditorView: View {
         applyTime(hour: comps.hour ?? 9, minute: comps.minute ?? 0)
     }
 
-    /// 置顶 / 高光
+    /// 置顶
     private var flagCard: some View {
         VStack(spacing: 0) {
             Toggle(isOn: $isPinned) {
                 Label("置顶", systemImage: "pin")
-                    .font(.system(size: 15))
-            }
-            .padding(.vertical, 10)
-            Divider().padding(.leading, 4)
-            Toggle(isOn: $isHighlighted) {
-                Label("高光", systemImage: "sparkles")
                     .font(.system(size: 15))
             }
             .padding(.vertical, 10)
@@ -669,7 +662,6 @@ struct RecordEditorView: View {
         dueTime = editing.dueTime
         reminder = editing.wantsReminder
         isPinned = editing.isPinned
-        isHighlighted = editing.isHighlighted
     }
 
     private func save() {
@@ -694,7 +686,6 @@ struct RecordEditorView: View {
         editing.dueTime = time
         editing.wantsReminder = wantsReminder
         editing.isPinned = isPinned
-        editing.isHighlighted = isHighlighted
         editing.quoteID = selectedQuoteID
         if let photoData { editing.photoData = photoData }
         NotificationManager.cancelRecord(editing)
