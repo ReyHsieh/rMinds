@@ -9,7 +9,8 @@ struct RecordEditorView: View {
     let editing: Record?
     /// 新建时预填的内容
     var presetPhoto: Data? = nil
-    var presetVoice: (fileName: String, duration: TimeInterval)? = nil
+    @State var incomingVoice: (fileName: String, duration: TimeInterval)?
+    var presetVoice: (fileName: String, duration: TimeInterval)? { incomingVoice }
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -88,7 +89,20 @@ struct RecordEditorView: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(Color.cardTint)
                     )
-                    .onChange(of: text) { _, new in
+                    .onChange(of: editorPhotoItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data),
+                   let jpeg = image.downscaled(maxDimension: 1600, quality: 0.78) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        photoData = jpeg
+                    }
+                }
+                editorPhotoItem = nil
+            }
+        }
+        .onChange(of: text) { _, new in
                         // 输入 @ 触发日期选择，并把 @ 从文本移除
                         if new.hasSuffix("@") {
                             text = String(new.dropLast())
@@ -121,6 +135,27 @@ struct RecordEditorView: View {
 
             if let voice = effectiveVoice {
                 voicePreview(voice)
+            }
+
+            if recording {
+                editorRecordingBar
+            } else if effectivePhoto == nil || effectiveVoice == nil {
+                HStack(spacing: 8) {
+                    if effectivePhoto == nil {
+                        PhotosPicker(selection: $editorPhotoItem, matching: .images) {
+                            chipLabel("添加图片", icon: "photo")
+                        }
+                        .buttonStyle(PressableStyle(scale: 0.93))
+                    }
+                    if effectiveVoice == nil {
+                        Button {
+                            startEditorRecording()
+                        } label: {
+                            chipLabel("录语音", icon: "mic.fill")
+                        }
+                        .buttonStyle(PressableStyle(scale: 0.93))
+                    }
+                }
             }
 
             if isTodo {
@@ -220,15 +255,23 @@ struct RecordEditorView: View {
                     .frame(width: 92, height: 92)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-            Button {
-                photoData = nil
-                if let editing { editing.photoData = nil }
-            } label: {
-                Label("移除", systemImage: "trash")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.red)
+            VStack(spacing: 8) {
+                PhotosPicker(selection: $editorPhotoItem, matching: .images) {
+                    Label("更换", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.primaryText)
+                }
+                .buttonStyle(.plain)
+                Button {
+                    photoData = nil
+                    if let editing { editing.photoData = nil }
+                } label: {
+                    Label("移除", systemImage: "trash")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             .padding(.top, 4)
             Spacer()
         }
@@ -239,6 +282,7 @@ struct RecordEditorView: View {
         )
     }
 
+    @ViewBuilder
     private func voicePreview(_ voice: (fileName: String, duration: TimeInterval)) -> some View {
         Button {
             audio.togglePlay(fileName: voice.fileName, recordId: editing?.id ?? UUID())
@@ -249,6 +293,29 @@ struct RecordEditorView: View {
             )
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(Color.primaryText)
+        }
+        .buttonStyle(.plain)
+        Spacer()
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                if let editing, let old = editing.voiceFileName, recordedVoice != nil {
+                    AudioHelper.shared.deleteVoiceFile(old)
+                    editing.voiceFileName = nil
+                }
+                if let incomingVoice {
+                    AudioHelper.shared.deleteVoiceFile(incomingVoice.fileName)
+                }
+                recordedVoice = nil
+                if let editing {
+                    editing.voiceFileName = nil
+                    editing.voiceDuration = 0
+                }
+                incomingVoice = nil
+            }
+        } label: {
+            Label("移除", systemImage: "trash")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.red)
         }
         .buttonStyle(.plain)
         .padding(12)
@@ -322,6 +389,11 @@ struct RecordEditorView: View {
     @State private var customDate = Date()
     @State private var customTime = Date()
     @State private var showAtMenu = false
+    @State private var recordedVoice: (fileName: String, duration: TimeInterval)?
+    @State private var recording = false
+    @State private var recElapsed: TimeInterval = 0
+    @State private var recPulse = false
+    @State private var editorPhotoItem: PhotosPickerItem?
 
     private var dayMenu: some View {
         Menu {
@@ -419,13 +491,88 @@ struct RecordEditorView: View {
         )
     }
 
-    // MARK: 数据    // MARK: 数据
+    private var editorRecordingBar: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(.red)
+                .frame(width: 10, height: 10)
+                .scaleEffect(recPulse ? 1.25 : 0.85)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: recPulse)
+            Text(String(format: "%d:%02d", Int(recElapsed) / 60, Int(recElapsed) % 60))
+                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.primaryText)
+            Spacer()
+            Button {
+                _ = audio.stopRecording(cancel: true)
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { recording = false }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.secondaryText)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.chipFill))
+            }
+            .buttonStyle(PressableStyle(scale: 0.9))
+            Button {
+                if let result = audio.stopRecording(cancel: false) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        recordedVoice = result
+                        recording = false
+                    }
+                } else {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { recording = false }
+                }
+            } label: {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.onPrimary)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.accent(for: settings.accent)))
+            }
+            .buttonStyle(PressableStyle(scale: 0.88))
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.cardTint)
+        )
+    }
+
+    private func startEditorRecording() {
+        audio.startRecording()
+        recording = true
+        recPulse = true
+        textFocused = false
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            if !recording {
+                timer.invalidate()
+                return
+            }
+            recElapsed = audio.elapsed
+            if audio.micPermissionDenied {
+                timer.invalidate()
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { recording = false }
+            }
+        }
+    }
+
+    private func chipLabel(_ text: String, icon: String) -> some View {
+        Label(text, systemImage: icon)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Color.primaryText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(Color.chipFill))
+    }
+
+    // MARK: 数据
 
     private var effectivePhoto: Data? {
         photoData ?? editing?.photoData
     }
 
     private var effectiveVoice: (fileName: String, duration: TimeInterval)? {
+        if let recordedVoice { return recordedVoice }
         if let editing, let file = editing.voiceFileName {
             return (file, editing.voiceDuration)
         }
@@ -462,9 +609,18 @@ struct RecordEditorView: View {
         let time = isTodo ? dueTime : nil
         let wantsReminder = isTodo && reminder && time != nil
 
+        let hasPhoto = effectivePhoto != nil
+        let hasVoice = effectiveVoice != nil
         if let editing {
+            if let recordedVoice {
+                if let old = editing.voiceFileName, old != recordedVoice.fileName {
+                    AudioHelper.shared.deleteVoiceFile(old)
+                }
+                editing.voiceFileName = recordedVoice.fileName
+                editing.voiceDuration = recordedVoice.duration
+            }
             editing.text = trimmed
-            editing.kind = isTodo ? .todo : (editing.photoData != nil ? .photo : (editing.voiceFileName != nil ? .voice : .text))
+            editing.kind = isTodo ? .todo : (hasPhoto ? .photo : (hasVoice ? .voice : .text))
             editing.dueDay = isTodo ? dueDay : nil
             editing.dueTime = time
             editing.wantsReminder = wantsReminder
@@ -474,7 +630,8 @@ struct RecordEditorView: View {
             NotificationManager.cancelRecord(editing)
             syncReminder(recordId: editing.id, time: time, wantsReminder: wantsReminder, isDone: editing.isDone)
         } else {
-            let kind: Record.Kind = isTodo ? .todo : (presetPhoto != nil ? .photo : (presetVoice != nil ? .voice : .text))
+            let voice = recordedVoice ?? presetVoice
+            let kind: Record.Kind = isTodo ? .todo : (hasPhoto ? .photo : (hasVoice ? .voice : .text))
             let record = Record(
                 text: trimmed,
                 kind: kind,
@@ -484,9 +641,9 @@ struct RecordEditorView: View {
                 wantsReminder: wantsReminder,
                 isPinned: isPinned,
                 isHighlighted: isHighlighted,
-                photoData: presetPhoto,
-                voiceFileName: presetVoice?.fileName,
-                voiceDuration: presetVoice?.duration ?? 0
+                photoData: photoData ?? presetPhoto,
+                voiceFileName: voice?.fileName,
+                voiceDuration: voice?.duration ?? 0
             )
             context.insert(record)
             syncReminder(recordId: record.id, time: time, wantsReminder: wantsReminder, isDone: false)

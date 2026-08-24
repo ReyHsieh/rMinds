@@ -71,7 +71,7 @@ struct MainView: View {
             RecordEditorView(
                 editing: editingRecord,
                 presetPhoto: presetPhoto,
-                presetVoice: presetVoice
+                incomingVoice: presetVoice
             )
         }
         .sheet(isPresented: $showSettings) {

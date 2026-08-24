@@ -50,11 +50,18 @@ struct RecordRowView: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color.secondaryText)
                 }
-                switch record.kind {
-                case .text: textBody
-                case .todo: todoBody
-                case .photo: photoBody
-                case .voice: voiceBody
+                if record.isTodo {
+                    todoBody
+                } else {
+                    if record.photoData != nil {
+                        photoBody
+                    }
+                    if record.voiceFileName != nil {
+                        voiceBody
+                    }
+                    if !record.text.isEmpty {
+                        textBody
+                    }
                 }
             }
             .padding(.leading, record.isHighlighted ? 8 : 0)
@@ -120,7 +127,7 @@ struct RecordRowView: View {
     }
 
     private var photoBody: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        Group {
             if let data = record.photoData, let image = UIImage(data: data) {
                 Image(uiImage: image)
                     .resizable()
@@ -133,41 +140,86 @@ struct RecordRowView: View {
                         if !suppressTap, abs(offset) < 2 { showPhoto = true }
                     }
             }
-            if !record.text.isEmpty {
-                Text(record.text)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(Color.primaryText)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 
     private var voiceBody: some View {
-        Button {
-            guard let file = record.voiceFileName else { return }
-            audio.togglePlay(fileName: file, recordId: record.id)
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: audio.isPlaying && audio.playingId == record.id ? "pause.circle.fill" : "play.circle.fill")
-                    .font(.system(size: 26))
-                    .foregroundStyle(Color.primaryText)
-                HStack(spacing: 2) {
-                    ForEach(0..<14, id: \.self) { i in
-                        Capsule()
-                            .fill(Color.primaryText.opacity(0.55))
-                            .frame(width: 2.5, height: CGFloat([9, 15, 7, 18, 12, 20, 8, 14, 10, 17, 6, 13, 9, 16][i]))
+        HStack(spacing: 10) {
+            Button {
+                guard let file = record.voiceFileName else { return }
+                audio.togglePlay(fileName: file, recordId: record.id)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: audio.isPlaying && audio.playingId == record.id ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundStyle(Color.primaryText)
+                    HStack(spacing: 2) {
+                        ForEach(0..<14, id: \.self) { i in
+                            Capsule()
+                                .fill(Color.primaryText.opacity(0.55))
+                                .frame(width: 2.5, height: CGFloat([9, 15, 7, 18, 12, 20, 8, 14, 10, 17, 6, 13, 9, 16][i]))
+                        }
                     }
+                    Text(String(format: "%d:%02d", Int(record.voiceDuration) / 60, Int(record.voiceDuration) % 60))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.secondaryText)
                 }
-                Text(String(format: "%d:%02d", Int(record.voiceDuration) / 60, Int(record.voiceDuration) % 60))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.secondaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Color.cardTint))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(Color.cardTint))
+            .buttonStyle(PressableStyle(scale: 0.97))
+
+            if record.text.isEmpty {
+                transcribeButton
+            }
         }
-        .buttonStyle(PressableStyle(scale: 0.97))
+    }
+
+    /// 语音转文字（Apple Speech，优先设备端）
+    @State private var transcribing = false
+
+    private var transcribeButton: some View {
+        Button {
+            transcribeVoice()
+        } label: {
+            HStack(spacing: 5) {
+                if transcribing {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "text.bubble")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                Text(transcribing ? "转写中" : "转文字")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Color.secondaryText)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(Color.badgeBackground))
+        }
+        .buttonStyle(PressableStyle(scale: 0.93))
+        .disabled(transcribing)
+    }
+
+    private func transcribeVoice() {
+        guard let file = record.voiceFileName else { return }
+        transcribing = true
+        Task {
+            defer { transcribing = false }
+            guard await SpeechTranscriber.requestAuthorization() else { return }
+            guard let url = AudioHelper.shared.urlIfExists(file) else { return }
+            if let text = try? await SpeechTranscriber.transcribe(fileURL: url) {
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        record.text = trimmed
+                    }
+                    try? record.modelContext?.save()
+                }
+            }
+        }
     }
 
     private var checkbox: some View {

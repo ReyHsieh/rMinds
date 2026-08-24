@@ -61,6 +61,7 @@ rDos/
   TaskItem.swift         # 旧版模型（仅迁移用）+ App Group 共享
   AppSettings.swift      # 设置持久化(@Observable)
   DayGrouping.swift      # 日期分组/格式化
+  SpeechTranscriber.swift # 语音转文字（Speech 框架）
   NotificationManager.swift
   AudioHelper.swift      # 录音/播放
   Theme.swift            # 动态配色、按压反馈样式

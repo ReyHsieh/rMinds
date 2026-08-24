@@ -34,6 +34,12 @@ final class AudioHelper: NSObject, AVAudioRecorderDelegate {
         baseURL.appendingPathComponent(fileName)
     }
 
+    /// 文件存在时返回其 URL（转写前校验用）
+    func urlIfExists(_ fileName: String) -> URL? {
+        let url = url(for: fileName)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
     // MARK: 录音
 
     func startRecording() {
