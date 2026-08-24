@@ -456,30 +456,47 @@ struct RecordInputBar: View {
 }
 
 /// 多行输入（回车=换行，不触发发送；发送走独立按钮/⌘↩）。
-/// 胶囊底、随行数增高（1~5 行），占位符悬浮。
+/// iMessage 式增高：短内容按真实内容高度生长（隐藏镜像文本精确测量，
+/// 不做字符估算），到 5 行封顶后固定高度、内部滚动并自动跟随光标行
+/// （UITextView 原生保持光标可见，选中行切换同样跟随）。
 struct InputTextEditor: View {
     @Binding var text: String
     var placeholder: String
     var focused: FocusState<Bool>.Binding
     var onChange: (String) -> Void = { _ in }
 
-    @State private var editorHeight: CGFloat = 38
+    @State private var measuredHeight: CGFloat = 22
 
-    private let lineHeight: CGFloat = 21
-    private let horizontalPadding: CGFloat = 24
+    private var lineHeight: CGFloat { ceil(FS.s(16) * 1.35) }
+    private var maxLines: Int { 5 }
+    private var visibleHeight: CGFloat {
+        min(max(measuredHeight, lineHeight), lineHeight * CGFloat(maxLines))
+    }
 
     var body: some View {
-        ZStack(alignment: .leading) {
+        ZStack(alignment: .topLeading) {
+            // 镜像测量层：与编辑器同字体同宽度，隐藏占位
+            Text(text.isEmpty ? " " : text)
+                .font(.system(size: FS.s(16), weight: .medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .hidden()
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    // 直接赋值（不套动画），避免打字时高度跳动
+                    measuredHeight = height
+                }
+
             TextEditor(text: $text)
                 .font(.system(size: FS.s(16), weight: .medium))
                 .foregroundStyle(Color.primaryText)
                 .scrollContentBackground(.hidden)
-                .frame(height: editorHeight)
+                .frame(height: visibleHeight)
                 .frame(maxWidth: .infinity)
                 .focused(focused)
                 .onChange(of: text) { _, new in
                     onChange(new)
-                    recalcHeight()
                 }
 
             if text.isEmpty {
@@ -487,6 +504,7 @@ struct InputTextEditor: View {
                     .font(.system(size: FS.s(16), weight: .medium))
                     .foregroundStyle(Color.secondaryText)
                     .padding(.leading, 4)
+                    .padding(.top, 8)
                     .allowsHitTesting(false)
             }
         }
@@ -497,23 +515,6 @@ struct InputTextEditor: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.chipFill)
         )
-        .onAppear(perform: recalcHeight)
-    }
-
-    /// 依据文本换行估算高度（CJK 按字宽近似），1~5 行内自适应，超出内部滚动
-    private func recalcHeight() {
-        let fontSize = FS.s(16)
-        let charWidth = fontSize * 1.05
-        let available = max(140, UIScreen.main.bounds.width - 170) - horizontalPadding
-        var lines: CGFloat = 1
-        for paragraph in text.split(separator: "\n", omittingEmptySubsequences: false) {
-            lines += max(0, (CGFloat(paragraph.count) * charWidth / available).rounded(.up) - 1)
-            if paragraph.isEmpty { lines += 0 }
-        }
-        lines = max(1, min(5, lines))
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-            editorHeight = lines * lineHeight
-        }
     }
 }
 
