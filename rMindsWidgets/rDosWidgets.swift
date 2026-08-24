@@ -23,10 +23,12 @@ struct RecordEntry: TimelineEntry {
     let date: Date
     let todos: [TodoItem]
     let feed: [FeedItem]
+    let todayCount: Int
 
     var done: Int { todos.filter(\.isDone).count }
     var total: Int { todos.count }
     var nextTodo: TodoItem? { todos.first { !$0.isDone } }
+    var latest: FeedItem? { feed.first }
 }
 
 extension RecordEntry {
@@ -65,7 +67,9 @@ extension RecordEntry {
             )
         }
 
-        return RecordEntry(date: Date(), todos: Array(todos), feed: feed)
+        let today = DayPlanner.normalizedDay(Date())
+        let todayCount = all.filter { DayPlanner.normalizedDay($0.createdAt) == today }.count
+        return RecordEntry(date: Date(), todos: Array(todos), feed: feed, todayCount: todayCount)
     }
 
     private static func icon(for record: Record) -> String {
@@ -80,7 +84,7 @@ extension RecordEntry {
 
 struct RecordProvider: TimelineProvider {
     func placeholder(in context: Context) -> RecordEntry {
-        RecordEntry(date: Date(), todos: [], feed: [])
+        RecordEntry(date: Date(), todos: [], feed: [], todayCount: 0)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (RecordEntry) -> Void) {
@@ -122,19 +126,26 @@ struct rMindsWidgetView: View {
     // MARK: 锁屏
 
     private var circular: some View {
-        let fraction = entry.total == 0 ? 0.0 : Double(entry.done) / Double(entry.total)
+        let fraction: Double = entry.total > 0
+            ? Double(entry.done) / Double(entry.total)
+            : (entry.todayCount > 0 ? 1.0 : 0.0)
         return ZStack {
             Circle()
                 .trim(from: 0, to: fraction)
-                .stroke(style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .stroke(style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: 34, height: 34)
-            if entry.total == 0 {
+            if entry.todayCount == 0 {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
             } else {
-                Text("\(entry.done)/\(entry.total)")
-                    .font(.system(size: 12, weight: .bold))
+                VStack(spacing: 0) {
+                    Text("\(entry.todayCount)")
+                        .font(.system(size: 13, weight: .heavy))
+                    Text("条")
+                        .font(.system(size: 7, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .containerBackground(for: .widget) { Color.clear }
@@ -142,24 +153,28 @@ struct rMindsWidgetView: View {
 
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("待办 · \(entry.done)/\(entry.total)")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            if let next = entry.nextTodo {
-                Text(next.text)
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(2)
-                if let time = next.timeText {
-                    Text(time)
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text("今日 \(entry.todayCount) 条")
+                if entry.total > 0 {
+                    Text("· 待办 \(entry.done)/\(entry.total)")
                 }
-            } else if let latest = entry.feed.first {
-                Text(latest.text)
-                    .font(.system(size: 14, weight: .medium))
-                    .lineLimit(2)
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.secondary)
+            if let latest = entry.latest {
+                HStack(spacing: 5) {
+                    Image(systemName: latest.icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text(latest.text)
+                        .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(2)
+                }
+                Text(latest.timeText)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.secondary)
             } else {
-                Text("没有待办")
+                Text("记录此刻")
                     .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(.secondary)
             }
@@ -168,10 +183,8 @@ struct rMindsWidgetView: View {
     }
 
     private var inline: some View {
-        if let next = entry.nextTodo {
-            Text("\(entry.done)/\(entry.total) · \(next.text)")
-        } else if let latest = entry.feed.first {
-            Text("刚刚 · \(latest.text)")
+        if let latest = entry.latest {
+            Text("今日 \(entry.todayCount) 条 · \(latest.text)")
         } else {
             Text("记录此刻")
         }
@@ -182,7 +195,7 @@ struct rMindsWidgetView: View {
     private var small: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text("待办")
+                Text("今日")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(0.8)
                     .foregroundStyle(.secondary)
@@ -192,9 +205,24 @@ struct rMindsWidgetView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            Text("\(entry.done)/\(entry.total)")
-                .font(.system(size: 38, weight: .heavy))
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if entry.total > 0 {
+                Text("\(entry.done)/\(entry.total)")
+                    .font(.system(size: 34, weight: .heavy))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("待办 · 今日 \(entry.todayCount) 条记录")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text("\(entry.todayCount)")
+                    .font(.system(size: 38, weight: .heavy))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("条记录")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Spacer(minLength: 2)
             if let latest = entry.feed.first {
                 HStack(spacing: 5) {
                     Image(systemName: latest.icon)
@@ -211,7 +239,7 @@ struct rMindsWidgetView: View {
             }
             Spacer(minLength: 0)
         }
-        .containerBackground(for: .widget) { Color(white: 0.97) }
+        .containerBackground(for: .widget) { Color(uiColor: .systemBackground) }
     }
 
     private var medium: some View {
@@ -242,7 +270,7 @@ struct rMindsWidgetView: View {
                 }
             }
         }
-        .containerBackground(for: .widget) { Color(white: 0.97) }
+        .containerBackground(for: .widget) { Color(uiColor: .systemBackground) }
     }
 
     private var large: some View {
@@ -281,7 +309,7 @@ struct rMindsWidgetView: View {
             }
             Spacer(minLength: 0)
         }
-        .containerBackground(for: .widget) { Color(white: 0.97) }
+        .containerBackground(for: .widget) { Color(uiColor: .systemBackground) }
     }
 
     private func todoRow(_ text: String, done: Bool, time: String?) -> some View {
@@ -294,7 +322,7 @@ struct rMindsWidgetView: View {
                 if done {
                     Image(systemName: "checkmark")
                         .font(.system(size: 6, weight: .bold))
-                        .foregroundStyle(Color(white: 0.97))
+                        .foregroundStyle(Color(uiColor: .systemBackground))
                 }
             }
             .frame(width: 13, height: 13)
