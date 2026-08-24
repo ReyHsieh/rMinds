@@ -475,19 +475,6 @@ struct InputTextEditor: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // 镜像测量层：与编辑器同字体同宽度，隐藏占位
-            Text(text.isEmpty ? " " : text)
-                .font(.system(size: FS.s(16), weight: .medium))
-                .fixedSize(horizontal: false, vertical: true)
-                .hidden()
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.height
-                } action: { height in
-                    // 直接赋值（不套动画），避免打字时高度跳动
-                    measuredHeight = height
-                }
-
             TextEditor(text: $text)
                 .font(.system(size: FS.s(16), weight: .medium))
                 .foregroundStyle(Color.primaryText)
@@ -510,6 +497,25 @@ struct InputTextEditor: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
         .frame(minWidth: 120)
+        // 镜像测量层：挂在 overlay 不参与布局，仅报告内容真实高度
+        .background(
+            Color.clear
+                .frame(height: 0)
+                .overlay(alignment: .topLeading) {
+                    Text(text.isEmpty ? " " : text)
+                        .font(.system(size: FS.s(16), weight: .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .padding(.horizontal, -4)
+                        .onGeometryChange(for: CGFloat.self) { proxy in
+                            proxy.size.height
+                        } action: { height in
+                            measuredHeight = height
+                        }
+                        .allowsHitTesting(false)
+                }
+        )
     }
 }
 
