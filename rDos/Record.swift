@@ -16,6 +16,10 @@ final class Record {
     var dueTime: Date? = nil
     var wantsReminder: Bool = false
 
+    // 标记
+    var isPinned: Bool = false
+    var isHighlighted: Bool = false
+
     // 媒体
     var photoData: Data? = nil
     var voiceFileName: String? = nil
@@ -30,6 +34,8 @@ final class Record {
         dueDay: Date? = nil,
         dueTime: Date? = nil,
         wantsReminder: Bool = false,
+        isPinned: Bool = false,
+        isHighlighted: Bool = false,
         photoData: Data? = nil,
         voiceFileName: String? = nil,
         voiceDuration: Double = 0
@@ -42,6 +48,8 @@ final class Record {
         self.dueDay = dueDay
         self.dueTime = dueTime
         self.wantsReminder = wantsReminder
+        self.isPinned = isPinned
+        self.isHighlighted = isHighlighted
         self.photoData = photoData
         self.voiceFileName = voiceFileName
         self.voiceDuration = voiceDuration
@@ -63,34 +71,6 @@ extension Record {
 
     /// 是否待办（唯一有“状态”的记录类型）
     var isTodo: Bool { kind == .todo }
-
-    /// 正文里解析出的 #标签
-    var tags: [String] {
-        Record.parseTags(from: text)
-    }
-
-    static func parseTags(from text: String) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-        let scanner = Scanner(string: text)
-        // 跳过普通字符，找 # 开头的词（中文/字母/数字/下划线）
-        while let _ = scanner.scanUpToString("#") {
-            guard scanner.scanString("#") != nil else { break }
-            var name = ""
-            while let ch = scanner.scanCharacter() {
-                if ch.isLetter || ch.isNumber || ch == "_" {
-                    name.append(ch)
-                } else {
-                    break
-                }
-            }
-            if !name.isEmpty, !seen.contains(name) {
-                seen.insert(name)
-                result.append(name)
-            }
-        }
-        return result
-    }
 }
 
 /// 旧 rDos 任务 → 新 Record 的一次性迁移。

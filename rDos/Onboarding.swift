@@ -138,7 +138,7 @@ struct OnboardingOverlay: View {
                 Text("一切就绪")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Color.primaryText)
-                Text("给记录加上 #标签\n就能在分类页聚合回顾。")
+                Text("置顶重要的，高光精彩的，\n其他交给时间。")
                     .font(.system(size: 15, weight: .regular))
                     .foregroundStyle(Color.secondaryText)
                     .multilineTextAlignment(.center)

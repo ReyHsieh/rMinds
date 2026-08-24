@@ -10,21 +10,12 @@ struct HeaderHeightKey: PreferenceKey {
 }
 
 struct MainView: View {
-    enum Tab: String, CaseIterable, Identifiable {
-        case timeline = "时间线"
-        case tags = "分类"
-        var id: String { rawValue }
-    }
-
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppSettings.self) private var settings
     @Environment(OnboardingManager.self) private var onboarding
     @Query(sort: \Record.createdAt, order: .reverse) private var records: [Record]
 
-    @Namespace private var tabNamespace
-    @SceneStorage("main.selectedTab") private var tabRawValue: String = Tab.timeline.rawValue
-    @State private var selectedTag: String?
     @State private var showEditor = false
     @State private var editingRecord: Record?
     @State private var presetPhoto: Data?
@@ -33,11 +24,6 @@ struct MainView: View {
     @State private var frames: [String: CGRect] = [:]
     @State private var headerHeight: CGFloat = 0
     @State private var recordCountBeforeEditor = 0
-
-    private var tab: Tab {
-        get { Tab(rawValue: tabRawValue) ?? .timeline }
-        nonmutating set { tabRawValue = newValue.rawValue }
-    }
 
     private var recordActions: RecordActions {
         RecordActions(
@@ -57,22 +43,20 @@ struct MainView: View {
                 header
             }
 
-            if tab == .timeline {
-                RecordInputBar(
+            RecordInputBar(
                     onSend: quickAdd,
-                    onPickPhoto: { data in
-                        presetPhoto = data
-                        editingRecord = nil
-                        showEditor = true
-                    },
-                    onVoiceDone: { fileName, duration in
-                        presetVoice = (fileName, duration)
-                        editingRecord = nil
-                        showEditor = true
-                    }
-                )
-                .reportFrame("inputBar")
-            }
+                onPickPhoto: { data in
+                    presetPhoto = data
+                    editingRecord = nil
+                    showEditor = true
+                },
+                onVoiceDone: { fileName, duration in
+                    presetVoice = (fileName, duration)
+                    editingRecord = nil
+                    showEditor = true
+                }
+            )
+            .reportFrame("inputBar")
 
             if onboarding.isActive {
                 OnboardingOverlay(frames: frames)
@@ -149,12 +133,10 @@ struct MainView: View {
             }
             .padding(.top, 5)
 
-            tabsRow
-                .padding(.top, 22)
         }
         .padding(.horizontal, 20)
         .padding(.top, 5)
-        .padding(.bottom, 22)
+        .padding(.bottom, 14)
         .background {
             Rectangle()
                 .fill(Color.appBackground)
@@ -181,80 +163,13 @@ struct MainView: View {
         )
     }
 
-    private var tabsRow: some View {
-        HStack(spacing: 26) {
-            ForEach(Tab.allCases) { item in
-                tabButton(item)
-            }
-            if let selectedTag {
-                tagFilterChip
-            }
-            Spacer()
-        }
-    }
-
-    private var tagFilterChip: some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { selectedTag = nil }
-        } label: {
-            HStack(spacing: 4) {
-                Text("#\(selectedTag!)")
-                    .lineLimit(1)
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-            }
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Color.onPrimary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Capsule().fill(Color.primaryText))
-        }
-        .buttonStyle(PressableStyle(scale: 0.93))
-    }
-
-    private func tabButton(_ item: Tab) -> some View {
-        let selected = tab == item
-        return Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { tab = item }
-        } label: {
-            VStack(spacing: 10) {
-                Text(item.rawValue)
-                    .font(.system(size: 14, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(selected ? Color.primaryText : Color.secondaryText)
-                ZStack {
-                    Color.clear.frame(width: 28, height: 3)
-                    if selected {
-                        Capsule()
-                            .fill(Color.primaryText)
-                            .frame(width: 28, height: 3)
-                            .matchedGeometryEffect(id: "tabUnderline", in: tabNamespace)
-                    }
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressableStyle(scale: 0.95, opacity: 0.7))
-        .sensoryFeedback(.selection, trigger: tab)
-    }
-
     @ViewBuilder
     private var content: some View {
-        switch tab {
-        case .timeline:
-            TimelineView(
-                records: records,
-                actions: recordActions,
-                contentTopInset: headerHeight,
-                selectedTag: selectedTag
-            )
-        case .tags:
-            TagsView(records: records) { tag in
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    selectedTag = tag
-                    tab = .timeline
-                }
-            }
-        }
+        TimelineView(
+            records: records,
+            actions: recordActions,
+            contentTopInset: headerHeight
+        )
     }
 
     // MARK: 动作

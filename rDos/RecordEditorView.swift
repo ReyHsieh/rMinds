@@ -5,10 +5,6 @@ import PhotosUI
 /// 记录编辑器：新建（照片/语音草稿）或编辑既有记录。
 /// 待办可设置日期时间与提醒。
 struct RecordEditorView: View {
-    enum DayChoice: Hashable {
-        case none, today, tomorrow, pick
-    }
-
     /// nil = 新建
     let editing: Record?
     /// 新建时预填的内容
@@ -21,11 +17,11 @@ struct RecordEditorView: View {
 
     @State private var text = ""
     @State private var isTodo = false
-    @State private var dayChoice: DayChoice = .none
-    @State private var pickDate = Date()
-    @State private var hasTime = false
-    @State private var timeDate = Date()
+    @State private var dueDay: Date? = nil
+    @State private var dueTime: Date? = nil
     @State private var reminder = true
+    @State private var isPinned = false
+    @State private var isHighlighted = false
     @State private var photoData: Data?
     @State private var confirmDelete = false
     @FocusState private var textFocused: Bool
@@ -51,7 +47,7 @@ struct RecordEditorView: View {
                 .padding(.top, 6)
 
             TextField(isTodo ? "待办内容" : "记录点什么…", text: $text, axis: .vertical)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: FS.s(20), weight: .semibold))
                 .foregroundStyle(Color.primaryText)
                 .focused($textFocused)
                 .submitLabel(.done)
@@ -65,23 +61,7 @@ struct RecordEditorView: View {
                 toggleChip("待办", icon: "checklist", on: isTodo) {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { isTodo.toggle() }
                 }
-                if photoData != nil || editing?.photoData != nil {
-                    toggleChip("含照片", icon: "photo", on: true) {}
-                }
-                if voiceFileName != nil {
-                    toggleChip("语音", icon: "waveform", on: true) {}
-                }
                 Spacer()
-                if !previewTags.isEmpty {
-                    ForEach(previewTags, id: \.self) { tag in
-                        Text("#\(tag)")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.secondaryText)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(Color.badgeBackground))
-                    }
-                }
             }
 
             if let data = effectivePhoto {
@@ -93,11 +73,10 @@ struct RecordEditorView: View {
             }
 
             if isTodo {
-                dayChips
-                if dayChoice != .none {
-                    timeCard
-                }
+                scheduleCard
             }
+
+            flagCard
 
             Spacer(minLength: 0)
 
@@ -127,7 +106,7 @@ struct RecordEditorView: View {
                         .padding(.vertical, 12)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(canSave ? Color.primaryText : Color.disabledFill)
+                                .fill(canSave ? Color.accent(for: settings.accent) : Color.disabledFill)
                         )
                 }
                 .buttonStyle(PressableStyle(scale: 0.95))
@@ -209,60 +188,166 @@ struct RecordEditorView: View {
         )
     }
 
-    private var dayChips: some View {
-        HStack(spacing: 8) {
-            dayChip("无日期", .none)
-            dayChip("今天", .today)
-            dayChip("明天", .tomorrow)
-            dayChip("选日期", .pick)
-        }
-    }
-
-    private func dayChip(_ label: String, _ value: DayChoice) -> some View {
-        let selected = dayChoice == value
-        return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { dayChoice = value }
-        } label: {
-            Text(label)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(selected ? Color.onPrimary : Color.primaryText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Capsule().fill(selected ? Color.primaryText : Color.chipFill))
-        }
-        .buttonStyle(PressableStyle(scale: 0.93))
-        .sensoryFeedback(.selection, trigger: dayChoice)
-    }
-
-    private var timeCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "clock").font(.system(size: 12, weight: .semibold))
-                Text("时间与提醒").font(.system(size: 13, weight: .semibold))
+    /// 待办时间设置：两行菜单快捷选择 + 提醒开关
+    private var scheduleCard: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Label("日期", systemImage: "calendar")
+                    .font(.system(size: 15))
+                Spacer()
+                dayMenu
             }
-            .foregroundStyle(Color.secondaryText)
-            Toggle("添加时间", isOn: $hasTime)
-                .font(.system(size: 15))
-            if hasTime {
-                DatePicker("", selection: $timeDate, displayedComponents: .hourAndMinute)
+            .padding(.vertical, 10)
+
+            if showDatePicker {
+                DatePicker("", selection: $customDate, displayedComponents: .date)
                     .labelsHidden()
-                Toggle("到点提醒", isOn: $reminder)
+                    .datePickerStyle(.compact)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 8)
+                    .onChange(of: customDate) { _, value in
+                        dueDay = DayPlanner.normalizedDay(value)
+                    }
+            }
+
+            Divider().padding(.leading, 4)
+
+            HStack {
+                Label("时间", systemImage: "clock")
+                    .font(.system(size: 15))
+                Spacer()
+                timeMenu
+            }
+            .padding(.vertical, 10)
+
+            if showTimePicker {
+                DatePicker("", selection: $customTime, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 8)
+                    .onChange(of: customTime) { _, value in
+                        applyTime(hourMinute: value)
+                    }
+            }
+
+            Divider().padding(.leading, 4)
+
+            Toggle(isOn: $reminder) {
+                Label("到点提醒", systemImage: "bell")
                     .font(.system(size: 15))
             }
-            if dayChoice == .pick {
-                DatePicker("日期", selection: $pickDate, displayedComponents: .date)
-                    .font(.system(size: 15))
-            }
+            .disabled(dueTime == nil)
+            .padding(.vertical, 10)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.cardTint)
         )
     }
 
-    // MARK: 数据
+    @State private var showDatePicker = false
+    @State private var showTimePicker = false
+    @State private var customDate = Date()
+    @State private var customTime = Date()
+
+    private var dayMenu: some View {
+        Menu {
+            Button("无日期") { dueDay = nil; showDatePicker = false }
+            Button("今天") { dueDay = DayPlanner.normalizedDay(Date()); showDatePicker = false }
+            Button("明天") { dueDay = dayOffset(1); showDatePicker = false }
+            Button("后天") { dueDay = dayOffset(2); showDatePicker = false }
+            Button("下周") { dueDay = dayOffset(7); showDatePicker = false }
+            Button("选择日期…") {
+                customDate = dueDay ?? Date()
+                showDatePicker = true
+            }
+        } label: {
+            menuLabel(dayMenuText, active: dueDay != nil)
+        }
+    }
+
+    private var dayMenuText: String {
+        guard let day = dueDay else { return "无日期" }
+        let index = DayPlanner.dayIndex(of: day, hour: 0, minute: 0)
+        switch index {
+        case 0: return "今天"
+        case 1: return "明天"
+        case 2: return "后天"
+        case 7: return "下周"
+        default: return DayPlanner.localizedDate(day)
+        }
+    }
+
+    private var timeMenu: some View {
+        Menu {
+            Button("无时间") { dueTime = nil; showTimePicker = false }
+            ForEach([9, 12, 15, 18, 21], id: \.self) { hour in
+                Button(String(format: "%02d:00", hour)) {
+                    applyTime(hour: hour, minute: 0)
+                    showTimePicker = false
+                }
+            }
+            Button("选择时间…") {
+                customTime = dueTime ?? Date()
+                showTimePicker = true
+            }
+        } label: {
+            menuLabel(dueTime.map { DayPlanner.hm($0) } ?? "无时间", active: dueTime != nil)
+        }
+    }
+
+    private func menuLabel(_ text: String, active: Bool) -> some View {
+        HStack(spacing: 5) {
+            Text(text)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 9, weight: .semibold))
+        }
+        .font(.system(size: 14, weight: .medium))
+        .foregroundStyle(active ? Color.primaryText : Color.secondaryText)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.chipFill))
+    }
+
+    private func dayOffset(_ days: Int) -> Date? {
+        Calendar.current.date(byAdding: .day, value: days, to: DayPlanner.normalizedDay(Date()))
+    }
+
+    private func applyTime(hour: Int, minute: Int) {
+        let day = dueDay ?? DayPlanner.normalizedDay(Date())
+        if dueDay == nil { dueDay = day }
+        dueTime = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: day)
+    }
+
+    private func applyTime(hourMinute: Date) {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: hourMinute)
+        applyTime(hour: comps.hour ?? 9, minute: comps.minute ?? 0)
+    }
+
+    /// 置顶 / 高光
+    private var flagCard: some View {
+        VStack(spacing: 0) {
+            Toggle(isOn: $isPinned) {
+                Label("置顶", systemImage: "pin")
+                    .font(.system(size: 15))
+            }
+            .padding(.vertical, 10)
+            Divider().padding(.leading, 4)
+            Toggle(isOn: $isHighlighted) {
+                Label("高光", systemImage: "sparkles")
+                    .font(.system(size: 15))
+            }
+            .padding(.vertical, 10)
+        }
+        .padding(.horizontal, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.cardTint)
+        )
+    }
+
+    // MARK: 数据    // MARK: 数据
 
     private var effectivePhoto: Data? {
         photoData ?? editing?.photoData
@@ -282,10 +367,6 @@ struct RecordEditorView: View {
         effectiveVoice?.fileName
     }
 
-    private var previewTags: [String] {
-        Record.parseTags(from: text)
-    }
-
     private func load() {
         guard let editing, text.isEmpty else {
             if editing == nil {
@@ -295,60 +376,28 @@ struct RecordEditorView: View {
         }
         text = editing.text
         isTodo = editing.isTodo
-        if let day = editing.dueDay {
-            let index = DayPlanner.dayIndex(of: day, hour: settings.dayStartHour, minute: settings.dayStartMinute)
-            switch index {
-            case 0: dayChoice = .today
-            case 1: dayChoice = .tomorrow
-            default:
-                dayChoice = .pick
-                pickDate = day
-            }
-        } else {
-            dayChoice = .none
-        }
-        hasTime = editing.dueTime != nil
-        if let time = editing.dueTime {
-            timeDate = time
-        } else if let day = resolvedDay,
-                  let nine = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: day) {
-            timeDate = nine
-        }
+        dueDay = editing.dueDay
+        dueTime = editing.dueTime
         reminder = editing.wantsReminder
-    }
-
-    private var resolvedDay: Date? {
-        switch dayChoice {
-        case .none: return nil
-        case .today: return DayPlanner.normalizedDay(Date())
-        case .tomorrow: return DayPlanner.normalizedDay(Date().addingTimeInterval(86_400))
-        case .pick: return DayPlanner.normalizedDay(pickDate)
-        }
+        isPinned = editing.isPinned
+        isHighlighted = editing.isHighlighted
     }
 
     private func save() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard canSave else { return }
 
-        let day = resolvedDay
-        var time: Date? = nil
-        if hasTime, let day {
-            let comps = Calendar.current.dateComponents([.hour, .minute], from: timeDate)
-            time = Calendar.current.date(
-                bySettingHour: comps.hour ?? 9,
-                minute: comps.minute ?? 0,
-                second: 0,
-                of: day
-            )
-        }
-        let wantsReminder = isTodo && hasTime && reminder && time != nil
+        let time = isTodo ? dueTime : nil
+        let wantsReminder = isTodo && reminder && time != nil
 
         if let editing {
             editing.text = trimmed
             editing.kind = isTodo ? .todo : (editing.photoData != nil ? .photo : (editing.voiceFileName != nil ? .voice : .text))
-            editing.dueDay = day
+            editing.dueDay = isTodo ? dueDay : nil
             editing.dueTime = time
             editing.wantsReminder = wantsReminder
+            editing.isPinned = isPinned
+            editing.isHighlighted = isHighlighted
             if let photoData { editing.photoData = photoData }
             NotificationManager.cancelRecord(editing)
             syncReminder(recordId: editing.id, time: time, wantsReminder: wantsReminder, isDone: editing.isDone)
@@ -358,9 +407,11 @@ struct RecordEditorView: View {
                 text: trimmed,
                 kind: kind,
                 isDone: false,
-                dueDay: day,
+                dueDay: isTodo ? dueDay : nil,
                 dueTime: time,
                 wantsReminder: wantsReminder,
+                isPinned: isPinned,
+                isHighlighted: isHighlighted,
                 photoData: presetPhoto,
                 voiceFileName: presetVoice?.fileName,
                 voiceDuration: presetVoice?.duration ?? 0

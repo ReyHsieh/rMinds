@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// 设置：原生 Form 风格（iOS 26 玻璃分组自动应用）。
+/// 设置：外观（模式/强调色/图标）、字体、提醒、日程、数据、引导、关于。
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -9,15 +9,68 @@ struct SettingsView: View {
     @Environment(OnboardingManager.self) private var onboarding
     @Query private var records: [Record]
 
+    @State private var exportText: String?
+    @State private var confirmWipe = false
+    @State private var iconError: String?
+
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Picker("外观", selection: appearanceBinding) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Picker("强调色", selection: accentBinding) {
+                        ForEach(AccentTheme.allCases) { theme in
+                            HStack(spacing: 6) {
+                                Circle().fill(Color.accent(for: theme)).frame(width: 14, height: 14)
+                                Text(theme.label)
+                            }.tag(theme)
+                        }
+                    }
+                } header: {
+                    Text("外观")
+                } footer: {
+                    Text("强调色应用于发送按钮、待办勾选与高光标记。")
+                }
+
+                Section {
+                    Picker("App 图标", selection: iconBinding) {
+                        Text("气泡（默认）").tag("AppIcon")
+                        Text("墨黑").tag("AppIconDark")
+                        Text("描边").tag("AppIconLine")
+                    }
+                } header: {
+                    Text("App 图标")
+                } footer: {
+                    if let iconError {
+                        Text(iconError).foregroundStyle(.red)
+                    }
+                }
+
+                Section {
+                    Picker("字体大小", selection: fontSizeBinding) {
+                        ForEach(FontSizeMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("通用")
+                } footer: {
+                    Text("调整时间线与输入的字号。")
+                }
+
                 Section {
                     Toggle("到期提醒通知", isOn: remindersBinding)
                 } header: {
                     Text("提醒")
                 } footer: {
-                    Text("任务到达设定时间时发送通知。需要系统通知权限；关闭后所有待发提醒会被清除。")
+                    Text("带时间的待办到达设定时刻时发送通知。需要系统通知权限；关闭后所有待发提醒会被清除。")
                 }
 
                 Section {
@@ -29,18 +82,24 @@ struct SettingsView: View {
                 } header: {
                     Text("日程")
                 } footer: {
-                    Text("“今天” 从几点开始。影响 Today 分组与已完成任务的归档时机。")
+                    Text("“今天” 从几点开始。影响时间线分组与小组件统计。")
                 }
 
                 Section {
-                    Picker("外观", selection: appearanceBinding) {
-                        Text("跟随系统").tag(AppearanceMode.system)
-                        Text("浅色").tag(AppearanceMode.light)
-                        Text("深色").tag(AppearanceMode.dark)
+                    Button {
+                        exportRecords()
+                    } label: {
+                        Label("导出全部记录（文本）", systemImage: "square.and.arrow.up")
                     }
-                    .pickerStyle(.segmented)
+                    Button(role: .destructive) {
+                        confirmWipe = true
+                    } label: {
+                        Label("清空全部记录", systemImage: "trash")
+                    }
                 } header: {
-                    Text("外观")
+                    Text("数据")
+                } footer: {
+                    Text("记录仅保存在本机。导出生成纯文本，可通过系统分享保存。")
                 }
 
                 Section {
@@ -54,8 +113,6 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("新手引导")
-                } footer: {
-                    Text("重新体验创建任务、勾选完成等基本操作。")
                 }
 
                 Section {
@@ -72,11 +129,6 @@ struct SettingsView: View {
                     } label: {
                         Label("载入示例数据", systemImage: "square.grid.2x2")
                     }
-                    Button(role: .destructive) {
-                        SeedData.reset(context)
-                    } label: {
-                        Label("清除全部数据", systemImage: "trash")
-                    }
                 } header: {
                     Text("开发者选项（仅调试构建）")
                 }
@@ -90,10 +142,72 @@ struct SettingsView: View {
                         .fontWeight(.semibold)
                 }
             }
+            .sheet(item: Binding(
+                get: { exportText.map { ExportPayload(text: $0) } },
+                set: { _ in exportText = nil }
+            )) { payload in
+                ShareSheet(items: [payload.text])
+            }
+            .confirmationDialog("清空全部记录？此操作不可撤销。", isPresented: $confirmWipe, titleVisibility: .visible) {
+                Button("清空", role: .destructive) { wipeAll() }
+                Button("取消", role: .cancel) {}
+            }
         }
     }
 
+    struct ExportPayload: Identifiable {
+        let text: String
+        var id: String { UUID().uuidString }
+    }
+
+    // MARK: 动作
+
+    private func exportRecords() {
+        let sorted = records.sorted { $0.createdAt < $1.createdAt }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        var lines: [String] = ["rMinds 记录导出", ""]
+        var lastDay = ""
+        for record in sorted {
+            let day = DayPlanner.localizedDate(record.createdAt)
+            if day != lastDay {
+                lines.append("— \(day) —")
+                lastDay = day
+            }
+            let flag = record.isPinned ? "📌 " : (record.isHighlighted ? "✨ " : "")
+            let mark = record.isTodo ? (record.isDone ? "[x] " : "[ ] ") : ""
+            let time = DayPlanner.hm(record.createdAt)
+            var line = "\(time) \(flag)\(mark)\(record.text)"
+            if record.kind == .photo { line += "　[照片]" }
+            if record.kind == .voice { line += String(format: "　[语音 %d:%02d]", Int(record.voiceDuration) / 60, Int(record.voiceDuration) % 60) }
+            lines.append(line)
+        }
+        exportText = lines.joined(separator: "\n")
+    }
+
+    private func wipeAll() {
+        for record in records {
+            if let file = record.voiceFileName {
+                AudioHelper.shared.deleteVoiceFile(file)
+            }
+            context.delete(record)
+        }
+        try? context.save()
+    }
+
     // MARK: 绑定
+
+    private var iconBinding: Binding<String> {
+        Binding(
+            get: { UIApplication.shared.alternateIconName ?? "AppIcon" },
+            set: { name in
+                let target = name == "AppIcon" ? nil : name
+                UIApplication.shared.setAlternateIconName(target) { error in
+                    iconError = error.map { "图标切换失败：\($0.localizedDescription)" }
+                }
+            }
+        )
+    }
 
     private var remindersBinding: Binding<Bool> {
         Binding(
@@ -135,13 +249,29 @@ struct SettingsView: View {
     }
 
     private var appearanceBinding: Binding<AppearanceMode> {
-        Binding(
-            get: { settings.appearance },
-            set: { settings.appearance = $0 }
-        )
+        Binding(get: { settings.appearance }, set: { settings.appearance = $0 })
+    }
+
+    private var fontSizeBinding: Binding<FontSizeMode> {
+        Binding(get: { settings.fontSize }, set: { settings.fontSize = $0 })
+    }
+
+    private var accentBinding: Binding<AccentTheme> {
+        Binding(get: { settings.accent }, set: { settings.accent = $0 })
     }
 
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
+}
+
+/// 系统分享
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

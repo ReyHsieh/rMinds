@@ -7,6 +7,7 @@ struct RecordRowView: View {
     var actions: RecordActions
     var frameKey: String? = nil
 
+    @Environment(AppSettings.self) private var settings
     @State private var offset: CGFloat = 0
     @State private var dragStartOffset: CGFloat = 0
     @State private var isDragging = false
@@ -44,14 +45,24 @@ struct RecordRowView: View {
                 .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 7) {
+                if record.isPinned {
+                    Label("已置顶", systemImage: "pin.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.secondaryText)
+                }
                 switch record.kind {
                 case .text: textBody
                 case .todo: todoBody
                 case .photo: photoBody
                 case .voice: voiceBody
                 }
-                if !record.tags.isEmpty {
-                    tagChips
+            }
+            .padding(.leading, record.isHighlighted ? 8 : 0)
+            .overlay(alignment: .leading) {
+                if record.isHighlighted {
+                    Capsule()
+                        .fill(Color.accent(for: settings.accent))
+                        .frame(width: 3)
                 }
             }
             Spacer(minLength: 0)
@@ -65,7 +76,7 @@ struct RecordRowView: View {
 
     private var textBody: some View {
         Text(record.text)
-            .font(.system(size: 16, weight: .medium))
+            .font(.system(size: FS.s(16), weight: .medium))
             .foregroundStyle(Color.primaryText)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -83,7 +94,7 @@ struct RecordRowView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(record.text)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: FS.s(16), weight: .medium))
                     .foregroundStyle(record.isDone ? Color.secondaryText : Color.primaryText)
                     .strikethrough(record.isDone, color: Color.secondaryText)
                     .multilineTextAlignment(.leading)
@@ -153,23 +164,10 @@ struct RecordRowView: View {
         .buttonStyle(PressableStyle(scale: 0.97))
     }
 
-    private var tagChips: some View {
-        HStack(spacing: 6) {
-            ForEach(record.tags, id: \.self) { tag in
-                Text("#\(tag)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.secondaryText)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.badgeBackground))
-            }
-        }
-    }
-
     private var checkbox: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(record.isDone ? Color.primaryText : Color.chipFill)
+                .fill(record.isDone ? Color.accent(for: settings.accent) : Color.chipFill)
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .strokeBorder(record.isDone ? Color.clear : Color.checkboxBorder, lineWidth: 1.5)
             if record.isDone {

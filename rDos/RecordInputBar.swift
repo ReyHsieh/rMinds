@@ -7,6 +7,7 @@ struct RecordInputBar: View {
     var onPickPhoto: (Data) -> Void
     var onVoiceDone: (String, TimeInterval) -> Void
 
+    @Environment(AppSettings.self) private var settings
     @State private var draft = ""
     @State private var todoMode = false
     @State private var photoItem: PhotosPickerItem?
@@ -76,13 +77,13 @@ struct RecordInputBar: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(todoMode ? Color.onPrimary : Color.secondaryText)
                     .frame(width: 38, height: 38)
-                    .background(Circle().fill(todoMode ? Color.primaryText : Color.chipFill))
+                    .background(Circle().fill(todoMode ? Color.accent(for: settings.accent) : Color.chipFill))
             }
             .buttonStyle(PressableStyle(scale: 0.9))
             .sensoryFeedback(.selection, trigger: todoMode)
 
             TextField(todoMode ? "添加待办…" : "记录此刻…", text: $draft, axis: .vertical)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: FS.s(16), weight: .medium))
                 .foregroundStyle(Color.primaryText)
                 .lineLimit(1...4)
                 .focused($focused)
@@ -105,7 +106,7 @@ struct RecordInputBar: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(canSend ? Color.onPrimary : Color.secondaryText)
                     .frame(width: 38, height: 38)
-                    .background(Circle().fill(canSend ? Color.primaryText : Color.disabledFill))
+                    .background(Circle().fill(canSend ? Color.accent(for: settings.accent) : Color.disabledFill))
             }
             .buttonStyle(PressableStyle(scale: 0.88))
             .disabled(!canSend)
@@ -157,10 +158,6 @@ struct RecordInputBar: View {
             Text(String(format: "%d:%02d", Int(elapsed) / 60, Int(elapsed) % 60))
                 .font(.system(size: 16, weight: .semibold, design: .monospaced))
                 .foregroundStyle(Color.primaryText)
-
-            Text("上滑取消")
-                .font(.system(size: 12, weight: .regular))
-                .foregroundStyle(Color.secondaryText)
 
             Spacer()
 

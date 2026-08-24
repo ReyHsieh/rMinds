@@ -24,6 +24,48 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum FontSizeMode: String, CaseIterable, Identifiable {
+    case small
+    case standard
+    case large
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .small: return "小"
+        case .standard: return "标准"
+        case .large: return "大"
+        }
+    }
+
+    var scale: CGFloat {
+        switch self {
+        case .small: return 0.9
+        case .standard: return 1.0
+        case .large: return 1.15
+        }
+    }
+}
+
+enum AccentTheme: String, CaseIterable, Identifiable {
+    case ink
+    case indigo
+    case amber
+    case forest
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .ink: return "墨"
+        case .indigo: return "靛"
+        case .amber: return "琥珀"
+        case .forest: return "森"
+        }
+    }
+}
+
 /// 全局设置，UserDefaults 持久化。
 @Observable
 final class AppSettings {
@@ -42,6 +84,16 @@ final class AppSettings {
     var appearance: AppearanceMode {
         didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) }
     }
+    var fontSize: FontSizeMode {
+        didSet {
+            defaults.set(fontSize.rawValue, forKey: Keys.fontSize)
+            FS.scale = fontSize.scale
+        }
+    }
+    var accent: AccentTheme {
+        didSet { defaults.set(accent.rawValue, forKey: Keys.accent) }
+    }
+
     private let defaults: UserDefaults
 
     private enum Keys {
@@ -49,6 +101,8 @@ final class AppSettings {
         static let dayStartHour = "settings.dayStartHour"
         static let dayStartMinute = "settings.dayStartMinute"
         static let appearance = "settings.appearance"
+        static let fontSize = "settings.fontSize"
+        static let accent = "settings.accent"
     }
 
     private init() {
@@ -58,5 +112,8 @@ final class AppSettings {
         dayStartHour = defaults.object(forKey: Keys.dayStartHour) as? Int ?? 4
         dayStartMinute = defaults.object(forKey: Keys.dayStartMinute) as? Int ?? 0
         appearance = AppearanceMode(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
+        fontSize = FontSizeMode(rawValue: defaults.string(forKey: Keys.fontSize) ?? "") ?? .standard
+        accent = AccentTheme(rawValue: defaults.string(forKey: Keys.accent) ?? "") ?? .ink
+        FS.scale = fontSize.scale
     }
 }

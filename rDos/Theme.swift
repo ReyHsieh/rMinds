@@ -7,24 +7,24 @@ private func dynamicColor(light: UIColor, dark: UIColor) -> Color {
     })
 }
 
-/// 黑白灰极简配色（浅色对照截图，深色为适配版）。
+/// 黑白灰极简配色（浅色对照原设计，深色为适配版）。
 extension Color {
     /// 主文字：近黑
     static let primaryText = dynamicColor(
         light: UIColor(red: 0.08, green: 0.08, blue: 0.09, alpha: 1),
         dark: .white
     )
-    /// 次要文字：时间、计数、未选中 tab
+    /// 次要文字：时间、计数
     static let secondaryText = dynamicColor(
         light: UIColor(white: 0, alpha: 0.42),
         dark: UIColor(white: 1, alpha: 0.55)
     )
-    /// Today 卡片底色：#F2F1ED（实测自参考图）
+    /// 卡片底色：#F2F1ED（暖灰）
     static let cardBackground = dynamicColor(
         light: UIColor(red: 242 / 255, green: 241 / 255, blue: 237 / 255, alpha: 1),
         dark: UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
     )
-    /// 卡片纯色填充：比 cardBackground 略深一档的暖灰
+    /// 卡片纯色填充
     static let cardTint = dynamicColor(
         light: UIColor(red: 236 / 255, green: 234 / 255, blue: 229 / 255, alpha: 1),
         dark: UIColor(red: 0.13, green: 0.13, blue: 0.14, alpha: 1)
@@ -33,7 +33,7 @@ extension Color {
         light: .white,
         dark: UIColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1)
     )
-    /// New task 胶囊按钮
+    /// 输入栏芯片底色
     static let newTaskBackground = dynamicColor(
         light: .white,
         dark: UIColor(red: 0.17, green: 0.17, blue: 0.18, alpha: 1)
@@ -52,12 +52,12 @@ extension Color {
         light: UIColor(red: 0.15, green: 0.15, blue: 0.16, alpha: 1),
         dark: UIColor(white: 1, alpha: 0.4)
     )
-    /// 白色芯片（复选框底、编辑器选日期芯片等）
+    /// 白色芯片（复选框底、编辑器菜单标签等）
     static let chipFill = dynamicColor(
         light: .white,
         dark: UIColor(red: 0.17, green: 0.17, blue: 0.18, alpha: 1)
     )
-    /// "4 DAYS" 等小标签底
+    /// 小标签/置顶区底色
     static let badgeBackground = dynamicColor(
         light: UIColor(white: 0, alpha: 0.06),
         dark: UIColor(white: 1, alpha: 0.10)
@@ -66,6 +66,40 @@ extension Color {
         light: UIColor(white: 0, alpha: 0.08),
         dark: UIColor(white: 1, alpha: 0.12)
     )
+
+    // MARK: 强调色主题
+
+    /// 按主题取强调色（墨=近黑，其余为低饱和彩色）
+    static func accent(for theme: AccentTheme) -> Color {
+        switch theme {
+        case .ink:
+            return dynamicColor(
+                light: UIColor(red: 0.08, green: 0.08, blue: 0.09, alpha: 1),
+                dark: .white
+            )
+        case .indigo:
+            return dynamicColor(
+                light: UIColor(red: 0.29, green: 0.29, blue: 0.68, alpha: 1),
+                dark: UIColor(red: 0.62, green: 0.62, blue: 0.94, alpha: 1)
+            )
+        case .amber:
+            return dynamicColor(
+                light: UIColor(red: 0.72, green: 0.47, blue: 0.11, alpha: 1),
+                dark: UIColor(red: 0.93, green: 0.72, blue: 0.38, alpha: 1)
+            )
+        case .forest:
+            return dynamicColor(
+                light: UIColor(red: 0.13, green: 0.45, blue: 0.28, alpha: 1),
+                dark: UIColor(red: 0.45, green: 0.78, blue: 0.58, alpha: 1)
+            )
+        }
+    }
+}
+
+/// 全局字号缩放（设置 → 字体大小；由 AppSettings 更新）
+enum FS {
+    static var scale: CGFloat = 1.0
+    static func s(_ base: CGFloat) -> CGFloat { base * scale }
 }
 
 // MARK: - 按压反馈（统一的手感体系）
@@ -82,7 +116,7 @@ struct PressableStyle: ButtonStyle {
     }
 }
 
-// MARK: - 新手引导用的布局取框
+// MARK: - 新手引导用的布局取帧
 
 struct FrameReporterKey: PreferenceKey {
     static var defaultValue: [String: CGRect] = [:]

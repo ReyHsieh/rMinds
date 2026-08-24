@@ -99,23 +99,23 @@ enum SeedData {
     }
 
     /// (文字, 类型, 分钟前, 待办相关: 是否完成/天偏移/时/分)
-    private static let samples: [(String, Record.Kind, Int, Bool, Int?, Int?, Int?)] = [
-        ("早上骑车的时候想到：碎碎念也许不需要被管理，被记住就够了 #想法", .text, 26, false, nil, nil, nil),
-        ("整理本周的产品草图", .todo, 240, false, 0, 9, 0),
-        ("确认 rMinds 的中文文案 #工作", .todo, 300, true, nil, nil, nil),
-        ("给植物浇水", .todo, 390, true, nil, nil, nil),
-        ("读《禅与摩托车维修艺术》第 3 章 #成长", .todo, 1500, false, 0, 21, 30),
-        ("突然觉得“记录”和“管理”是两件事，做产品时别混 #产品", .text, 1900, false, nil, nil, nil),
-        ("买牛奶和鸡蛋", .todo, 2900, true, nil, nil, nil),
-        ("和团队讨论新需求的方向 #工作", .todo, 3200, false, 1, 10, 0),
-        ("预约牙医", .todo, 3300, false, 1, 15, 0),
+    private static let samples: [(String, Record.Kind, Int, Bool, Int?, Int?, Int?, Bool, Bool)] = [
+        ("早上骑车的时候想到：碎碎念也许不需要被管理，被记住就够了", .text, 26, false, nil, nil, nil, true, false),
+        ("整理本周的产品草图", .todo, 240, false, 0, 9, 0, false, false),
+        ("确认 rMinds 的中文文案", .todo, 300, true, nil, nil, nil, false, false),
+        ("给植物浇水", .todo, 390, true, nil, nil, nil, false, false),
+        ("读《禅与摩托车维修艺术》第 3 章", .todo, 1500, false, 0, 21, 30, false, false),
+        ("突然觉得“记录”和“管理”是两件事，做产品时别混", .text, 1900, false, nil, nil, nil, false, true),
+        ("买牛奶和鸡蛋", .todo, 2900, true, nil, nil, nil, false, false),
+        ("和团队讨论新需求的方向", .todo, 3200, false, 1, 10, 0, false, false),
+        ("预约牙医", .todo, 3300, false, 1, 15, 0, false, false),
     ]
 
     private static func insertSamples(into context: ModelContext) {
         let calendar = Calendar.current
         let today = DayPlanner.normalizedDay(Date())
         let now = Date()
-        for (text, kind, minutesAgo, done, dayOffset, hour, minute) in samples {
+        for (text, kind, minutesAgo, done, dayOffset, hour, minute, pinned, highlighted) in samples {
             let created = now.addingTimeInterval(-Double(minutesAgo) * 60)
             var day: Date? = nil
             var time: Date? = nil
@@ -132,7 +132,9 @@ enum SeedData {
                 isDone: done,
                 dueDay: day,
                 dueTime: time,
-                wantsReminder: kind == .todo
+                wantsReminder: kind == .todo,
+                isPinned: pinned,
+                isHighlighted: highlighted
             )
             context.insert(record)
         }
