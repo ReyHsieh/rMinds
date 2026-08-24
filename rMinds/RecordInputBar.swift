@@ -479,7 +479,15 @@ struct InputTextEditor: View {
                 .onChange(of: text) { _, new in
                     onChange(new)
                 }
+                // 内省清零 UITextView 内边距：文字/光标精确落在原点
+                .background(EditorInsetRemover())
 
+            if text.isEmpty {
+                Text(placeholder)
+                    .font(.system(size: FS.s(16), weight: .medium))
+                    .foregroundStyle(Color.secondaryText)
+                    .allowsHitTesting(false)
+            }
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
