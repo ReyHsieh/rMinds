@@ -365,13 +365,14 @@ struct RecordRowView: View {
     // MARK: 手势
 
     private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 8)
+        // 阈值过小会在竖向先激活并吃掉触摸，导致列表无法滚动；14pt 是安全下限
+        DragGesture(minimumDistance: 14)
             .onChanged { value in
                 let width = value.translation.width
                 let height = value.translation.height
                 // 方向锁定：明确横向才接管；竖向交给滚动
                 if !horizontalLock {
-                    if abs(width) > 10 && abs(width) > abs(height) * 1.3 {
+                    if abs(width) > 14 && abs(width) > abs(height) * 1.3 {
                         horizontalLock = true
                         isDragging = true
                         dragStartOffset = offset
