@@ -203,14 +203,7 @@ struct RecordInputBar: View {
             }
         }
         .onChange(of: draft) { _, new in
-            // 输入 @ 触发日期选择，并把 @ 从草稿移除
-            if new.hasSuffix("@") {
-                draft = String(new.dropLast())
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    showAtMenu = true
-                    showAtCalendar = false
-                }
-            }
+            handleDraftChange(new)
         }
         .onDisappear {
             if recording {
@@ -238,14 +231,13 @@ struct RecordInputBar: View {
     // MARK: 常规输入栏
 
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            TextField(placeholder, text: $draft, axis: .vertical)
-                .font(.system(size: FS.s(16), weight: .medium))
-                .foregroundStyle(Color.primaryText)
-                .lineLimit(1...4)
-                .focused($focused)
-                .submitLabel(.send)
-                .onSubmit(send)
+        HStack(alignment: .bottom, spacing: 8) {
+            InputTextEditor(
+                text: $draft,
+                placeholder: placeholder,
+                focused: $focused,
+                onChange: { handleDraftChange($0) }
+            )
 
             PhotosPicker(selection: $photoItem, matching: .images) {
                 Image(systemName: "photo")
@@ -267,6 +259,7 @@ struct RecordInputBar: View {
             }
             .buttonStyle(PressableStyle(scale: 0.88))
             .disabled(!canSend)
+            .keyboardShortcut(.return, modifiers: .command)
         }
     }
 
@@ -433,6 +426,17 @@ struct RecordInputBar: View {
         }
     }
 
+    private func handleDraftChange(_ new: String) {
+        // 输入 @ 触发日期选择，并把 @ 从草稿移除
+        if new.hasSuffix("@") {
+            draft = String(new.dropLast())
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                showAtMenu = true
+                showAtCalendar = false
+            }
+        }
+    }
+
     private func send() {
         guard canSend else { return }
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -448,6 +452,68 @@ struct RecordInputBar: View {
             showAtCalendar = false
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+}
+
+/// 多行输入（回车=换行，不触发发送；发送走独立按钮/⌘↩）。
+/// 胶囊底、随行数增高（1~5 行），占位符悬浮。
+struct InputTextEditor: View {
+    @Binding var text: String
+    var placeholder: String
+    var focused: FocusState<Bool>.Binding
+    var onChange: (String) -> Void = { _ in }
+
+    @State private var editorHeight: CGFloat = 38
+
+    private let lineHeight: CGFloat = 21
+    private let horizontalPadding: CGFloat = 24
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            TextEditor(text: $text)
+                .font(.system(size: FS.s(16), weight: .medium))
+                .foregroundStyle(Color.primaryText)
+                .scrollContentBackground(.hidden)
+                .frame(height: editorHeight)
+                .frame(maxWidth: .infinity)
+                .focused(focused)
+                .onChange(of: text) { _, new in
+                    onChange(new)
+                    recalcHeight()
+                }
+
+            if text.isEmpty {
+                Text(placeholder)
+                    .font(.system(size: FS.s(16), weight: .medium))
+                    .foregroundStyle(Color.secondaryText)
+                    .padding(.leading, 4)
+                    .allowsHitTesting(false)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(minWidth: 120)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.chipFill)
+        )
+        .onAppear(perform: recalcHeight)
+    }
+
+    /// 依据文本换行估算高度（CJK 按字宽近似），1~5 行内自适应，超出内部滚动
+    private func recalcHeight() {
+        let fontSize = FS.s(16)
+        let charWidth = fontSize * 1.05
+        let available = max(140, UIScreen.main.bounds.width - 170) - horizontalPadding
+        var lines: CGFloat = 1
+        for paragraph in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            lines += max(0, (CGFloat(paragraph.count) * charWidth / available).rounded(.up) - 1)
+            if paragraph.isEmpty { lines += 0 }
+        }
+        lines = max(1, min(5, lines))
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            editorHeight = lines * lineHeight
+        }
     }
 }
 
