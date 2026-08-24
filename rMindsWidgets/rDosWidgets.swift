@@ -242,34 +242,48 @@ struct rMindsWidgetView: View {
         .containerBackground(for: .widget) { Color(uiColor: .systemBackground) }
     }
 
+    /// 中号：小号的头部（日期时间 + 今日条数 + 进度大数字）+ 待办列表，顶部对齐
     private var medium: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline) {
-                Text("待办")
-                    .font(.system(size: 14, weight: .semibold))
+                Text("今日 · \(DayPlanner.uppercaseShortDate(entry.date)) \(DayPlanner.hm(entry.date))")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(entry.done)/\(entry.total)")
-                    .font(.system(size: 12, weight: .regular))
+                Text("\(entry.todayCount) 条记录")
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
+
+            if entry.total > 0 {
+                Text("\(entry.done)/\(entry.total)")
+                    .font(.system(size: 28, weight: .heavy))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if entry.todayCount > 0 {
+                Text("\(entry.todayCount)")
+                    .font(.system(size: 28, weight: .heavy))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             if entry.todos.isEmpty {
-                Spacer()
                 Text("没有待办，随手记点什么吧")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ForEach(Array(entry.todos.prefix(4).enumerated()), id: \.offset) { _, todo in
+                ForEach(Array(entry.todos.prefix(3).enumerated()), id: \.offset) { _, todo in
                     todoRow(todo.text, done: todo.isDone, time: todo.timeText)
                 }
-                if entry.todos.count > 4 {
-                    Text("还有 \(entry.todos.count - 4) 项")
+                if entry.todos.count > 3 {
+                    Text("还有 \(entry.todos.count - 3) 项")
                         .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .containerBackground(for: .widget) { Color(uiColor: .systemBackground) }
     }
 
