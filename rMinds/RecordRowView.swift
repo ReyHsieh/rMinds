@@ -65,6 +65,7 @@ struct RecordRowView: View {
                     }
                 }
             }
+            .padding(.top, startsWithVoice ? -3 : 0)
             .padding(.leading, record.isHighlighted ? 8 : 0)
             .overlay(alignment: .leading) {
                 if record.isHighlighted {
@@ -99,12 +100,12 @@ struct RecordRowView: View {
 
     private var todoBody: some View {
         HStack(alignment: .top, spacing: 11) {
-            Button {
-                actions.onToggleDone(record)
-            } label: {
-                checkbox
-            }
-            .buttonStyle(.plain)
+            checkbox
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    actions.onToggleDone(record)
+                }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(record.text)
@@ -144,32 +145,41 @@ struct RecordRowView: View {
         }
     }
 
+    /// 胶囊宽度随语音时长伸缩（30s 封顶 → 不超过一行）
+    private var voiceBubbleWidth: CGFloat {
+        min(300, 96 + record.voiceDuration * 7)
+    }
+
     private var voiceBody: some View {
-        HStack(spacing: 10) {
-            Button {
-                guard let file = record.voiceFileName else { return }
-                audio.togglePlay(fileName: file, recordId: record.id)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: audio.isPlaying && audio.playingId == record.id ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 26))
-                        .foregroundStyle(Color.primaryText)
-                    HStack(spacing: 2) {
-                        ForEach(0..<14, id: \.self) { i in
-                            Capsule()
-                                .fill(Color.primaryText.opacity(0.55))
-                                .frame(width: 2.5, height: CGFloat([9, 15, 7, 18, 12, 20, 8, 14, 10, 17, 6, 13, 9, 16][i]))
-                        }
+        HStack(spacing: 8) {
+            // 播放胶囊（tap 手势而非 Button，避免与滑动拖拽手势抢判据）
+            HStack(spacing: 9) {
+                Image(systemName: audio.isPlaying && audio.playingId == record.id ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundStyle(Color.primaryText)
+                HStack(spacing: 2) {
+                    ForEach(0..<14, id: \.self) { i in
+                        Capsule()
+                            .fill(Color.primaryText.opacity(0.55))
+                            .frame(width: 2.5, height: CGFloat([9, 15, 7, 18, 12, 20, 8, 14, 10, 17, 6, 13, 9, 16][i]))
                     }
-                    Text(String(format: "%d:%02d", Int(record.voiceDuration) / 60, Int(record.voiceDuration) % 60))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.secondaryText)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.cardTint))
+                Text(String(format: "%d:%02d", Int(record.voiceDuration) / 60, Int(record.voiceDuration) % 60))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.secondaryText)
+                    .lineLimit(1)
+                    .fixedSize()
             }
-            .buttonStyle(PressableStyle(scale: 0.97))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .frame(width: voiceBubbleWidth, alignment: .leading)
+            .background(Capsule().fill(Color.cardTint))
+            .contentShape(Capsule())
+            .onTapGesture {
+                guard let file = record.voiceFileName else { return }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                audio.togglePlay(fileName: file, recordId: record.id)
+            }
 
             if record.transcript == nil {
                 transcribeButton
@@ -210,27 +220,27 @@ struct RecordRowView: View {
     @State private var transcribing = false
 
     private var transcribeButton: some View {
-        Button {
-            transcribeVoice()
-        } label: {
-            HStack(spacing: 5) {
-                if transcribing {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: "text.bubble")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                Text(transcribing ? "转写中" : "转文字")
-                    .font(.system(size: 12, weight: .semibold))
+        HStack(spacing: 3) {
+            if transcribing {
+                ProgressView()
+                    .controlSize(.mini)
+            } else {
+                Image(systemName: "text.bubble")
+                    .font(.system(size: 10, weight: .semibold))
             }
-            .foregroundStyle(Color.secondaryText)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(Capsule().fill(Color.badgeBackground))
+            Text(transcribing ? "转写中" : "转文字")
+                .font(.system(size: 11, weight: .semibold))
         }
-        .buttonStyle(PressableStyle(scale: 0.93))
-        .disabled(transcribing)
+        .foregroundStyle(Color.secondaryText)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.badgeBackground))
+        .contentShape(Capsule())
+        .onTapGesture {
+            guard !transcribing else { return }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            transcribeVoice()
+        }
     }
 
     private func transcribeVoice() {
@@ -250,6 +260,10 @@ struct RecordRowView: View {
                 }
             }
         }
+    }
+
+    private var startsWithVoice: Bool {
+        !record.isTodo && record.text.isEmpty && record.photoData == nil && record.voiceFileName != nil
     }
 
     private var checkbox: some View {
@@ -443,18 +457,27 @@ struct RecordActions {
     let onDelete: (Record) -> Void
 }
 
-/// 全屏看图
+/// 全屏看图：下滑关闭
 struct PhotoViewer: View {
     let photoData: Data?
     @Environment(\.dismiss) private var dismiss
+    @State private var dragOffset: CGSize = .zero
+
+    private var dismissProgress: CGFloat {
+        min(1, max(0, abs(dragOffset.height) / 300))
+    }
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.black
+                .opacity(1 - Double(dismissProgress) * 0.7)
+                .ignoresSafeArea()
             if let data = photoData, let image = UIImage(data: data) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
+                    .scaleEffect(1 - dismissProgress * 0.15, anchor: dragOffset.height > 0 ? .bottom : .top)
+                    .offset(dragOffset)
             }
             VStack {
                 HStack {
@@ -474,6 +497,24 @@ struct PhotoViewer: View {
                 Spacer()
             }
         }
+        .simultaneousGesture(
+            DragGesture()
+                .onChanged { value in
+                    // 横向位移小、纵向拖动才视为关闭手势
+                    if abs(value.translation.width) < abs(value.translation.height) {
+                        dragOffset = value.translation
+                    }
+                }
+                .onEnded { value in
+                    if abs(value.translation.height) > 120 {
+                        dismiss()
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            dragOffset = .zero
+                        }
+                    }
+                }
+        )
         .onTapGesture { dismiss() }
     }
 }

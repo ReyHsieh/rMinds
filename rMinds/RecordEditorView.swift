@@ -532,6 +532,18 @@ struct RecordEditorView: View {
                 return
             }
             recElapsed = audio.elapsed
+            if recElapsed >= 30 {
+                timer.invalidate()
+                if let result = audio.stopRecording(cancel: false) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        recordedVoice = result
+                        recording = false
+                    }
+                } else {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { recording = false }
+                }
+                return
+            }
             if audio.micPermissionDenied {
                 timer.invalidate()
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { recording = false }

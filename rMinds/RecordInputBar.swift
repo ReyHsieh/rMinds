@@ -398,6 +398,12 @@ struct RecordInputBar: View {
                 return
             }
             elapsed = audio.elapsed
+            // 30 秒上限：自动完成
+            if elapsed >= 30 {
+                timer.invalidate()
+                finishVoice()
+                return
+            }
             // 权限被拒时自动收起录音条（权限弹窗期间会等待结果）
             if audio.micPermissionDenied {
                 timer.invalidate()
