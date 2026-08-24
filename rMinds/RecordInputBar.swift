@@ -503,18 +503,13 @@ struct InputTextEditor: View {
                 Text(placeholder)
                     .font(.system(size: FS.s(16), weight: .medium))
                     .foregroundStyle(Color.secondaryText)
-                    .padding(.leading, 4)
                     .padding(.top, 8)
                     .allowsHitTesting(false)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 8)
         .frame(minWidth: 120)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.chipFill)
-        )
     }
 }
 
