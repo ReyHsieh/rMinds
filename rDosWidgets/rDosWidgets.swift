@@ -40,6 +40,7 @@ extension RecordEntry {
             let context = ModelContext(container)
             all = (try? context.fetch(FetchDescriptor<Record>())) ?? []
         }
+        all.removeAll { $0.deletedAt != nil }
         all.sort { $0.createdAt > $1.createdAt }
 
         let calendar = Calendar.current

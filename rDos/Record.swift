@@ -19,6 +19,8 @@ final class Record {
     // 标记
     var isPinned: Bool = false
     var isHighlighted: Bool = false
+    /// 软删除时间（设置 → 最近删除 可恢复/彻底删除）
+    var deletedAt: Date? = nil
 
     // 媒体
     var photoData: Data? = nil
@@ -36,6 +38,7 @@ final class Record {
         wantsReminder: Bool = false,
         isPinned: Bool = false,
         isHighlighted: Bool = false,
+        deletedAt: Date? = nil,
         photoData: Data? = nil,
         voiceFileName: String? = nil,
         voiceDuration: Double = 0
@@ -50,6 +53,7 @@ final class Record {
         self.wantsReminder = wantsReminder
         self.isPinned = isPinned
         self.isHighlighted = isHighlighted
+        self.deletedAt = deletedAt
         self.photoData = photoData
         self.voiceFileName = voiceFileName
         self.voiceDuration = voiceDuration

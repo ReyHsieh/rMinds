@@ -25,6 +25,10 @@ struct MainView: View {
     @State private var headerHeight: CGFloat = 0
     @State private var recordCountBeforeEditor = 0
 
+    private var visibleRecords: [Record] {
+        records.filter { $0.deletedAt == nil }
+    }
+
     private var recordActions: RecordActions {
         RecordActions(
             onToggleDone: toggleDone,
@@ -166,7 +170,7 @@ struct MainView: View {
     @ViewBuilder
     private var content: some View {
         TimelineView(
-            records: records,
+            records: visibleRecords,
             actions: recordActions,
             contentTopInset: headerHeight
         )
@@ -203,18 +207,15 @@ struct MainView: View {
 
     private func deleteRecord(_ record: Record) {
         NotificationManager.cancelRecord(record)
-        if let file = record.voiceFileName {
-            AudioHelper.shared.deleteVoiceFile(file)
-        }
         withAnimation(.easeOut(duration: 0.2)) {
-            context.delete(record)
+            record.deletedAt = Date()   // 软删除，可在设置 → 最近删除恢复
         }
         try? context.save()
         WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func refreshNotifications() {
-        NotificationManager.refreshRecords(records, enabled: settings.remindersEnabled)
+        NotificationManager.refreshRecords(visibleRecords, enabled: settings.remindersEnabled)
         WidgetCenter.shared.reloadAllTimelines()
     }
 }

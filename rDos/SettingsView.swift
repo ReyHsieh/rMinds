@@ -9,6 +9,10 @@ struct SettingsView: View {
     @Environment(OnboardingManager.self) private var onboarding
     @Query private var records: [Record]
 
+    private var deletedRecords: [Record] {
+        records.filter { $0.deletedAt != nil }.sorted { $0.deletedAt ?? .distantPast > $1.deletedAt ?? .distantPast }
+    }
+
     @State private var exportText: String?
     @State private var confirmWipe = false
     @State private var iconError: String?
@@ -103,6 +107,14 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        DeletedRecordsView()
+                    } label: {
+                        Label("最近删除", systemImage: "trash")
+                        Spacer()
+                        Text("\(deletedRecords.count) 条")
+                            .foregroundStyle(Color.secondaryText)
+                    }
                     Button {
                         exportRecords()
                     } label: {
@@ -180,7 +192,7 @@ struct SettingsView: View {
     // MARK: 动作
 
     private func exportRecords() {
-        let sorted = records.sorted { $0.createdAt < $1.createdAt }
+        let sorted = records.filter { $0.deletedAt == nil }.sorted { $0.createdAt < $1.createdAt }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         var lines: [String] = ["rMinds 记录导出", ""]
@@ -299,4 +311,131 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+
+/// 最近删除：查看被删除的记录，可恢复或彻底删除。
+struct DeletedRecordsView: View {
+    @Environment(\.modelContext) private var context
+    @Query private var records: [Record]
+    @State private var confirmClear = false
+
+    private var deletedRecords: [Record] {
+        records.filter { $0.deletedAt != nil }.sorted { $0.deletedAt ?? .distantPast > $1.deletedAt ?? .distantPast }
+    }
+
+    var body: some View {
+        Group {
+            if deletedRecords.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "trash.slash")
+                        .font(.system(size: 34, weight: .light))
+                        .foregroundStyle(Color.secondaryText.opacity(0.6))
+                    Text("回收站是空的")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.secondaryText)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(deletedRecords) { record in
+                        row(record)
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+        .navigationTitle("最近删除")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !deletedRecords.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("恢复全部") {
+                        for record in deletedRecords {
+                            record.deletedAt = nil
+                        }
+                        try? context.save()
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                }
+                ToolbarItem(placement: .bottomBar) {
+                    Button(role: .destructive) {
+                        confirmClear = true
+                    } label: {
+                        Label("清空回收站", systemImage: "trash")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                }
+            }
+        }
+        .confirmationDialog("彻底删除全部记录？不可恢复。", isPresented: $confirmClear, titleVisibility: .visible) {
+            Button("彻底删除", role: .destructive) { purgeAll() }
+            Button("取消", role: .cancel) {}
+        }
+    }
+
+    private func row(_ record: Record) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    record.deletedAt = nil
+                }
+                try? context.save()
+            } label: {
+                Image(systemName: "arrow.uturn.backward.circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.accent(for: AppSettings.shared.accent))
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(record.text.isEmpty ? kindLabel(record) : record.text)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.primaryText)
+                    .lineLimit(2)
+                Text(deletedText(record))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.secondaryText)
+            }
+            Spacer()
+            Button {
+                purge(record)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func purge(_ record: Record) {
+        if let file = record.voiceFileName {
+            AudioHelper.shared.deleteVoiceFile(file)
+        }
+        withAnimation { context.delete(record) }
+        try? context.save()
+    }
+
+    private func purgeAll() {
+        for record in deletedRecords {
+            purge(record)
+        }
+    }
+
+    private func kindLabel(_ record: Record) -> String {
+        switch record.kind {
+        case .text: return "文字记录"
+        case .todo: return "待办"
+        case .photo: return "照片"
+        case .voice: return "语音"
+        }
+    }
+
+    private func deletedText(_ record: Record) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M月d日 HH:mm 删除"
+        return formatter.string(from: record.deletedAt ?? record.createdAt)
+    }
 }

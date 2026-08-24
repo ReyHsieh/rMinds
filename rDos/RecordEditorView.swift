@@ -39,17 +39,15 @@ struct RecordEditorView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Capsule()
-                .fill(Color.secondaryText.opacity(0.25))
-                .frame(width: 36, height: 4)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 6)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Capsule()
+                    .fill(Color.secondaryText.opacity(0.25))
+                    .frame(width: 36, height: 4)
+                    .frame(maxWidth: .infinity)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-            VStack(spacing: 8) {
-                if showAtMenu {
+                VStack(spacing: 8) {
+                    if showAtMenu {
                     AtDateMenu(
                         onPickDay: { date in
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -129,12 +127,12 @@ struct RecordEditorView: View {
                 scheduleCard
             }
 
-            flagCard
-
-                }
+                flagCard
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
             HStack(spacing: 12) {
                 if editing != nil {
                     Button {
@@ -167,9 +165,27 @@ struct RecordEditorView: View {
                 .buttonStyle(PressableStyle(scale: 0.95))
                 .disabled(!canSave)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+            .background(
+                Rectangle()
+                    .fill(Color.appBackground)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .black, location: 0.5),
+                                .init(color: .black, location: 1),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .ignoresSafeArea(edges: .bottom)
+            )
         }
         .padding(.horizontal, 20)
-        .padding(.bottom, 16)
         .background(Color.appBackground)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -487,10 +503,7 @@ struct RecordEditorView: View {
     private func deleteAndDismiss() {
         guard let editing else { return }
         NotificationManager.cancelRecord(editing)
-        if let file = editing.voiceFileName {
-            AudioHelper.shared.deleteVoiceFile(file)
-        }
-        context.delete(editing)
+        withAnimation { editing.deletedAt = Date() }   // 软删除，可在设置→最近删除恢复
         try? context.save()
         dismiss()
     }
